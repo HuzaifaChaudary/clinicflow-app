@@ -1,475 +1,330 @@
-"""
-Dashboard API Routes
-
-Endpoints for dashboard summaries and statistics.
-"""
-
-from datetime import date, datetime, timedelta
-from typing import Optional, List
-from uuid import UUID
-
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
-from sqlalchemy.orm import selectinload
-
+from sqlalchemy.orm import Session, joinedload
+from typing import Optional, List, Dict, Any
+from datetime import date
 from app.database import get_db
-from app.models import (
-    Appointment,
-    Patient,
-    Doctor,
-    User,
-    Cancellation,
-    IntakeSubmission,
-    AppointmentStatus,
-    IntakeStatus,
-)
-from app.schemas import (
-    AdminDashboardSummary,
-    DoctorDashboardSummary,
-    NeedsAttentionItem,
-    NeedsAttentionResponse,
-    DailyStatsResponse,
-    AppointmentsByStatusResponse,
-    AppointmentsByProviderResponse,
-)
-from app.api.deps import (
-    get_current_user,
-    get_current_doctor,
-    require_permission,
-)
-from app.core.permissions import Permission
+from app.models.appointment import Appointment
+from app.models.doctor import Doctor
+from app.models.patient import Patient
+from app.models.intake import AIIntakeSummary
+from app.api.deps import get_current_user, require_admin, require_doctor
+from app.models.user import User
+from pydantic import BaseModel
+
+router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
 
-router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
+# Response Models
+class Stats(BaseModel):
+    total_appointments: int
+    confirmed: int
+    unconfirmed: int
+    missing_intake: int
+    voice_ai_alerts: int = 0  # Mocked for MVP
 
 
-@router.get("/admin/summary", response_model=AdminDashboardSummary)
-async def get_admin_dashboard_summary(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> AdminDashboardSummary:
-    """
-    Get admin dashboard summary.
+class AttentionItem(BaseModel):
+    id: str
+    patient_name: str
+    time: str
+    doctor: str
+    issue: str
+
+
+class ScheduleItem(BaseModel):
+    id: str
+    time: str
+    patient_name: str
+    doctor: str
+    visit_type: str
+    status: Dict[str, Any]
+
+
+class AdminDashboardResponse(BaseModel):
+    date: str
+    stats: Stats
+    needs_attention: List[AttentionItem]
+    todays_schedule: List[ScheduleItem]
+
+
+class DoctorInfo(BaseModel):
+    id: str
+    name: str
+
+
+class PatientStatus(BaseModel):
+    confirmed: bool
+    intake_complete: bool
+    arrived: bool = False
+
+
+class IntakeSummaryInfo(BaseModel):
+    summary_text: str
+    patient_concerns: List[str]
+    medications: List[str]
+    allergies: List[str]
+
+
+class TodaysPatient(BaseModel):
+    id: str
+    appointment_id: str
+    time: str
+    patient_name: str
+    visit_type: str
+    visit_category: Optional[str]
+    status: PatientStatus
+    intake_summary: Optional[IntakeSummaryInfo] = None
+
+
+class DoctorDashboardResponse(BaseModel):
+    date: str
+    doctor: DoctorInfo
+    stats: Stats
+    todays_patients: List[TodaysPatient]
+
+
+class AttentionItemDetail(BaseModel):
+    id: str
+    type: str
+    patient_name: str
+    patient_phone: Optional[str]
+    time: str
+    doctor: str
+    appointment_id: str
+
+
+class NeedsAttentionResponse(BaseModel):
+    total: int
+    items: List[AttentionItemDetail]
+
+
+@router.get("/admin", response_model=AdminDashboardResponse)
+def get_admin_dashboard(
+    date_param: Optional[date] = Query(None, alias="date"),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Get admin dashboard stats"""
+    if date_param is None:
+        date_param = date.today()
     
-    Shows aggregate statistics across all doctors in the clinic.
-    """
-    today = date.today()
-    week_start = today - timedelta(days=today.weekday())
+    # Get all appointments for today
+    appointments = db.query(Appointment).options(
+        joinedload(Appointment.doctor),
+        joinedload(Appointment.patient)
+    ).filter(
+        Appointment.clinic_id == current_user.clinic_id,
+        Appointment.date == date_param,
+        Appointment.status != "cancelled"
+    ).all()
     
-    # Today's appointments
-    today_count = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.clinic_id == current_user.clinic_id,
-            Appointment.date == today,
-            Appointment.status != AppointmentStatus.CANCELLED,
-        )
-    ) or 0
+    # Calculate stats
+    total = len(appointments)
+    confirmed = sum(1 for apt in appointments if apt.status == "confirmed")
+    unconfirmed = sum(1 for apt in appointments if apt.status == "unconfirmed")
+    missing_intake = sum(1 for apt in appointments if apt.intake_status == "missing")
     
-    # Confirmed today
-    confirmed_today = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.clinic_id == current_user.clinic_id,
-            Appointment.date == today,
-            Appointment.status == AppointmentStatus.CONFIRMED,
-        )
-    ) or 0
+    stats = Stats(
+        total_appointments=total,
+        confirmed=confirmed,
+        unconfirmed=unconfirmed,
+        missing_intake=missing_intake,
+        voice_ai_alerts=0  # Mocked
+    )
     
-    # Unconfirmed (next 7 days)
-    unconfirmed_count = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.clinic_id == current_user.clinic_id,
-            Appointment.date >= today,
-            Appointment.date <= today + timedelta(days=7),
-            Appointment.status == AppointmentStatus.UNCONFIRMED,
-        )
-    ) or 0
+    # Build needs_attention list
+    needs_attention = []
+    for apt in appointments:
+        if apt.status == "unconfirmed":
+            needs_attention.append(AttentionItem(
+                id=str(apt.id),
+                patient_name=apt.patient.full_name,
+                time=apt.start_time.strftime("%I:%M %p"),
+                doctor=apt.doctor.name,
+                issue="unconfirmed"
+            ))
+        elif apt.intake_status == "missing":
+            needs_attention.append(AttentionItem(
+                id=str(apt.id),
+                patient_name=apt.patient.full_name,
+                time=apt.start_time.strftime("%I:%M %p"),
+                doctor=apt.doctor.name,
+                issue="missing_intake"
+            ))
     
-    # Missing intake (upcoming)
-    missing_intake_count = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.clinic_id == current_user.clinic_id,
-            Appointment.date >= today,
-            Appointment.intake_status.in_([IntakeStatus.NOT_STARTED, IntakeStatus.SENT]),
-            Appointment.status.not_in([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]),
-        )
-    ) or 0
+    # Build today's schedule
+    todays_schedule = []
+    for apt in appointments:
+        todays_schedule.append(ScheduleItem(
+            id=str(apt.id),
+            time=apt.start_time.strftime("%I:%M %p"),
+            patient_name=apt.patient.full_name,
+            doctor=apt.doctor.name,
+            visit_type=apt.visit_type or "in-clinic",
+            status={
+                "confirmed": apt.status == "confirmed",
+                "intake_complete": apt.intake_status == "completed"
+            }
+        ))
     
-    # Checked in today
-    checked_in_today = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.clinic_id == current_user.clinic_id,
-            Appointment.date == today,
-            Appointment.status == AppointmentStatus.CHECKED_IN,
-        )
-    ) or 0
+    # Sort by time
+    todays_schedule.sort(key=lambda x: x.time)
     
-    # Completed today
-    completed_today = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.clinic_id == current_user.clinic_id,
-            Appointment.date == today,
-            Appointment.status == AppointmentStatus.COMPLETED,
-        )
-    ) or 0
-    
-    # Cancellations this week
-    cancellations_week = await db.scalar(
-        select(func.count(Cancellation.id)).where(
-            Cancellation.clinic_id == current_user.clinic_id,
-            Cancellation.cancelled_at >= week_start,
-        )
-    ) or 0
-    
-    # No shows this week
-    no_shows_week = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.clinic_id == current_user.clinic_id,
-            Appointment.date >= week_start,
-            Appointment.status == AppointmentStatus.NO_SHOW,
-        )
-    ) or 0
-    
-    # Active patients count
-    active_patients = await db.scalar(
-        select(func.count(Patient.id)).where(
-            Patient.clinic_id == current_user.clinic_id,
-            Patient.is_active == True,
-        )
-    ) or 0
-    
-    # Active doctors count
-    active_doctors = await db.scalar(
-        select(func.count(Doctor.id)).where(
-            Doctor.clinic_id == current_user.clinic_id,
-            Doctor.is_active == True,
-        )
-    ) or 0
-    
-    return AdminDashboardSummary(
-        today_appointments=today_count,
-        confirmed_today=confirmed_today,
-        unconfirmed_upcoming=unconfirmed_count,
-        missing_intake=missing_intake_count,
-        checked_in_today=checked_in_today,
-        completed_today=completed_today,
-        cancellations_this_week=cancellations_week,
-        no_shows_this_week=no_shows_week,
-        active_patients=active_patients,
-        active_doctors=active_doctors,
+    return AdminDashboardResponse(
+        date=date_param.isoformat(),
+        stats=stats,
+        needs_attention=needs_attention,
+        todays_schedule=todays_schedule
     )
 
 
-@router.get("/doctor/summary", response_model=DoctorDashboardSummary)
-async def get_doctor_dashboard_summary(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-    doctor_id: Optional[UUID] = Query(None, description="Doctor ID (admin can view any doctor)"),
-) -> DoctorDashboardSummary:
-    """
-    Get doctor-specific dashboard summary.
+@router.get("/doctor", response_model=DoctorDashboardResponse)
+def get_doctor_dashboard(
+    date_param: Optional[date] = Query(None, alias="date"),
+    current_user: User = Depends(require_doctor),
+    db: Session = Depends(get_db)
+):
+    """Get doctor dashboard stats"""
+    if date_param is None:
+        date_param = date.today()
     
-    Doctors see their own stats. Admins can view any doctor's stats.
-    """
-    today = date.today()
+    # Get doctor info
+    doctor = db.query(Doctor).filter(Doctor.id == current_user.doctor_id).first()
+    if not doctor:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Doctor not found")
     
-    # Determine which doctor
-    if current_user.role.value == "doctor":
-        # Get doctor for current user
-        doctor_result = await db.execute(
-            select(Doctor).where(Doctor.user_id == current_user.id)
-        )
-        doctor = doctor_result.scalar_one_or_none()
-        if not doctor:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Doctor profile not found",
+    # Get today's appointments for this doctor
+    appointments = db.query(Appointment).options(
+        joinedload(Appointment.patient)
+    ).filter(
+        Appointment.clinic_id == current_user.clinic_id,
+        Appointment.doctor_id == current_user.doctor_id,
+        Appointment.date == date_param,
+        Appointment.status != "cancelled"
+    ).all()
+    
+    # Calculate stats
+    total = len(appointments)
+    confirmed = sum(1 for apt in appointments if apt.status == "confirmed")
+    unconfirmed = sum(1 for apt in appointments if apt.status == "unconfirmed")
+    missing_intake = sum(1 for apt in appointments if apt.intake_status == "missing")
+    
+    stats = Stats(
+        total_appointments=total,
+        confirmed=confirmed,
+        unconfirmed=unconfirmed,
+        missing_intake=missing_intake,
+        voice_ai_alerts=0  # Mocked
+    )
+    
+    # Build today's patients with intake summaries
+    todays_patients = []
+    for apt in appointments:
+        # Get AI intake summary if exists
+        intake_summary = db.query(AIIntakeSummary).filter(
+            AIIntakeSummary.appointment_id == apt.id
+        ).first()
+        
+        intake_summary_info = None
+        if intake_summary:
+            intake_summary_info = IntakeSummaryInfo(
+                summary_text=intake_summary.summary_text,
+                patient_concerns=intake_summary.patient_concerns or [],
+                medications=intake_summary.medications or [],
+                allergies=intake_summary.allergies or []
             )
-        target_doctor_id = doctor.id
-    elif doctor_id:
-        target_doctor_id = doctor_id
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Doctor ID required for non-doctor users",
-        )
+        
+        todays_patients.append(TodaysPatient(
+            id=str(apt.patient.id),
+            appointment_id=str(apt.id),
+            time=apt.start_time.strftime("%I:%M %p"),
+            patient_name=apt.patient.full_name,
+            visit_type=apt.visit_type or "in-clinic",
+            visit_category=apt.visit_category,
+            status=PatientStatus(
+                confirmed=apt.status == "confirmed",
+                intake_complete=apt.intake_status == "completed",
+                arrived=apt.arrived
+            ),
+            intake_summary=intake_summary_info
+        ))
     
-    # Today's appointments
-    today_appointments = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.doctor_id == target_doctor_id,
-            Appointment.date == today,
-            Appointment.status != AppointmentStatus.CANCELLED,
-        )
-    ) or 0
+    # Sort by time
+    todays_patients.sort(key=lambda x: x.time)
     
-    # Next appointment
-    next_appt_result = await db.execute(
-        select(Appointment).where(
-            Appointment.doctor_id == target_doctor_id,
-            Appointment.date == today,
-            Appointment.status.in_([AppointmentStatus.CONFIRMED, AppointmentStatus.CHECKED_IN]),
-        ).options(
-            selectinload(Appointment.patient)
-        ).order_by(Appointment.start_time).limit(1)
-    )
-    next_appointment = next_appt_result.scalar_one_or_none()
-    
-    # Completed today
-    completed_today = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.doctor_id == target_doctor_id,
-            Appointment.date == today,
-            Appointment.status == AppointmentStatus.COMPLETED,
-        )
-    ) or 0
-    
-    # Remaining today
-    remaining_today = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.doctor_id == target_doctor_id,
-            Appointment.date == today,
-            Appointment.status.in_([
-                AppointmentStatus.UNCONFIRMED,
-                AppointmentStatus.CONFIRMED,
-                AppointmentStatus.CHECKED_IN,
-            ]),
-        )
-    ) or 0
-    
-    # Patients needing intake
-    needing_intake = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.doctor_id == target_doctor_id,
-            Appointment.date == today,
-            Appointment.intake_status.in_([IntakeStatus.NOT_STARTED, IntakeStatus.SENT]),
-            Appointment.status.not_in([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]),
-        )
-    ) or 0
-    
-    return DoctorDashboardSummary(
-        doctor_id=target_doctor_id,
-        today_appointments=today_appointments,
-        completed_today=completed_today,
-        remaining_today=remaining_today,
-        needing_intake=needing_intake,
-        next_appointment={
-            "id": str(next_appointment.id),
-            "patient_name": f"{next_appointment.patient.first_name} {next_appointment.patient.last_name}",
-            "start_time": next_appointment.start_time,
-            "status": next_appointment.status.value,
-        } if next_appointment else None,
+    return DoctorDashboardResponse(
+        date=date_param.isoformat(),
+        doctor=DoctorInfo(id=str(doctor.id), name=doctor.name),
+        stats=stats,
+        todays_patients=todays_patients
     )
 
 
 @router.get("/needs-attention", response_model=NeedsAttentionResponse)
-async def get_needs_attention_items(
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-    limit: int = Query(20, le=50, description="Max items to return"),
-) -> NeedsAttentionResponse:
-    """
-    Get items requiring attention.
-    
-    Returns unconfirmed appointments, missing intake, etc.
-    """
+def get_needs_attention(
+    filter_type: Optional[str] = Query("all", alias="filter"),
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Get items needing attention"""
     today = date.today()
-    items: List[NeedsAttentionItem] = []
     
-    # Get doctor if user is a doctor
-    doctor_filter = None
-    if current_user.role.value == "doctor":
-        doctor_result = await db.execute(
-            select(Doctor).where(Doctor.user_id == current_user.id)
-        )
-        doctor = doctor_result.scalar_one_or_none()
-        if doctor:
-            doctor_filter = doctor.id
-    
-    # Unconfirmed appointments
-    unconfirmed_query = select(Appointment).where(
+    # Get appointments needing attention
+    query = db.query(Appointment).options(
+        joinedload(Appointment.doctor),
+        joinedload(Appointment.patient)
+    ).filter(
         Appointment.clinic_id == current_user.clinic_id,
-        Appointment.date >= today,
-        Appointment.date <= today + timedelta(days=3),
-        Appointment.status == AppointmentStatus.UNCONFIRMED,
-    ).options(
-        selectinload(Appointment.patient),
-        selectinload(Appointment.doctor),
-    ).order_by(Appointment.date, Appointment.start_time).limit(limit // 2)
+        Appointment.date == today,
+        Appointment.status != "cancelled"
+    )
     
-    if doctor_filter:
-        unconfirmed_query = unconfirmed_query.where(Appointment.doctor_id == doctor_filter)
+    items = []
     
-    unconfirmed_result = await db.execute(unconfirmed_query)
-    for appt in unconfirmed_result.scalars().all():
-        items.append(NeedsAttentionItem(
-            id=str(appt.id),
-            type="unconfirmed",
-            title=f"Unconfirmed: {appt.patient.first_name} {appt.patient.last_name}",
-            description=f"{appt.date.isoformat()} at {appt.start_time} with Dr. {appt.doctor.name}",
-            priority="high" if appt.date == today else "medium",
-            created_at=appt.created_at,
-            resource_type="appointment",
-            resource_id=str(appt.id),
-        ))
+    # Filter by type
+    if filter_type == "unconfirmed":
+        query = query.filter(Appointment.status == "unconfirmed")
+    elif filter_type == "missing-intake":
+        query = query.filter(Appointment.intake_status == "missing")
+    # else "all" - no additional filter
     
-    # Missing intake
-    missing_intake_query = select(Appointment).where(
-        Appointment.clinic_id == current_user.clinic_id,
-        Appointment.date >= today,
-        Appointment.date <= today + timedelta(days=2),
-        Appointment.intake_status.in_([IntakeStatus.NOT_STARTED, IntakeStatus.SENT]),
-        Appointment.status.not_in([AppointmentStatus.CANCELLED, AppointmentStatus.NO_SHOW]),
-    ).options(
-        selectinload(Appointment.patient),
-        selectinload(Appointment.doctor),
-    ).order_by(Appointment.date, Appointment.start_time).limit(limit // 2)
+    appointments = query.all()
     
-    if doctor_filter:
-        missing_intake_query = missing_intake_query.where(Appointment.doctor_id == doctor_filter)
+    for apt in appointments:
+        # Add unconfirmed items
+        if apt.status == "unconfirmed" and (filter_type == "all" or filter_type == "unconfirmed"):
+            items.append(AttentionItemDetail(
+                id=str(apt.id),
+                type="unconfirmed",
+                patient_name=apt.patient.full_name,
+                patient_phone=apt.patient.phone,
+                time=apt.start_time.strftime("%I:%M %p"),
+                doctor=apt.doctor.name,
+                appointment_id=str(apt.id)
+            ))
+        
+        # Add missing intake items
+        if apt.intake_status == "missing" and (filter_type == "all" or filter_type == "missing-intake"):
+            items.append(AttentionItemDetail(
+                id=str(apt.id),
+                type="missing-intake",
+                patient_name=apt.patient.full_name,
+                patient_phone=apt.patient.phone,
+                time=apt.start_time.strftime("%I:%M %p"),
+                doctor=apt.doctor.name,
+                appointment_id=str(apt.id)
+            ))
     
-    missing_intake_result = await db.execute(missing_intake_query)
-    for appt in missing_intake_result.scalars().all():
-        items.append(NeedsAttentionItem(
-            id=str(appt.id),
-            type="missing_intake",
-            title=f"Missing Intake: {appt.patient.first_name} {appt.patient.last_name}",
-            description=f"{appt.date.isoformat()} at {appt.start_time}",
-            priority="high" if appt.date == today else "medium",
-            created_at=appt.created_at,
-            resource_type="appointment",
-            resource_id=str(appt.id),
-        ))
-    
-    # Sort by priority and date
-    items.sort(key=lambda x: (0 if x.priority == "high" else 1, x.created_at))
+    # Remove duplicates (appointment can be both unconfirmed and missing intake)
+    seen_ids = set()
+    unique_items = []
+    for item in items:
+        if item.appointment_id not in seen_ids:
+            unique_items.append(item)
+            seen_ids.add(item.appointment_id)
     
     return NeedsAttentionResponse(
-        items=items[:limit],
-        total_count=len(items),
+        total=len(unique_items),
+        items=unique_items
     )
 
-
-@router.get("/stats/daily", response_model=DailyStatsResponse)
-async def get_daily_stats(
-    view_date: date = Query(default_factory=date.today, description="Date to get stats for"),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> DailyStatsResponse:
-    """Get detailed statistics for a specific day."""
-    # Total appointments
-    total = await db.scalar(
-        select(func.count(Appointment.id)).where(
-            Appointment.clinic_id == current_user.clinic_id,
-            Appointment.date == view_date,
-        )
-    ) or 0
-    
-    # By status
-    status_counts = {}
-    for status in AppointmentStatus:
-        count = await db.scalar(
-            select(func.count(Appointment.id)).where(
-                Appointment.clinic_id == current_user.clinic_id,
-                Appointment.date == view_date,
-                Appointment.status == status,
-            )
-        ) or 0
-        status_counts[status.value] = count
-    
-    # By intake status
-    intake_counts = {}
-    for intake_status in IntakeStatus:
-        count = await db.scalar(
-            select(func.count(Appointment.id)).where(
-                Appointment.clinic_id == current_user.clinic_id,
-                Appointment.date == view_date,
-                Appointment.intake_status == intake_status,
-            )
-        ) or 0
-        intake_counts[intake_status.value] = count
-    
-    return DailyStatsResponse(
-        date=view_date,
-        total_appointments=total,
-        by_status=status_counts,
-        by_intake_status=intake_counts,
-    )
-
-
-@router.get("/stats/by-status", response_model=AppointmentsByStatusResponse)
-async def get_appointments_by_status(
-    start_date: date = Query(..., description="Start of date range"),
-    end_date: date = Query(..., description="End of date range"),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> AppointmentsByStatusResponse:
-    """Get appointment counts grouped by status for a date range."""
-    counts = {}
-    
-    for status in AppointmentStatus:
-        count = await db.scalar(
-            select(func.count(Appointment.id)).where(
-                Appointment.clinic_id == current_user.clinic_id,
-                Appointment.date >= start_date,
-                Appointment.date <= end_date,
-                Appointment.status == status,
-            )
-        ) or 0
-        counts[status.value] = count
-    
-    total = sum(counts.values())
-    
-    return AppointmentsByStatusResponse(
-        start_date=start_date,
-        end_date=end_date,
-        total=total,
-        by_status=counts,
-    )
-
-
-@router.get("/stats/by-provider", response_model=AppointmentsByProviderResponse)
-async def get_appointments_by_provider(
-    start_date: date = Query(..., description="Start of date range"),
-    end_date: date = Query(..., description="End of date range"),
-    current_user: User = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-) -> AppointmentsByProviderResponse:
-    """Get appointment counts grouped by doctor for a date range."""
-    # Get all doctors
-    doctors_result = await db.execute(
-        select(Doctor).where(
-            Doctor.clinic_id == current_user.clinic_id,
-            Doctor.is_active == True,
-        )
-    )
-    doctors = doctors_result.scalars().all()
-    
-    by_provider = []
-    for doctor in doctors:
-        count = await db.scalar(
-            select(func.count(Appointment.id)).where(
-                Appointment.doctor_id == doctor.id,
-                Appointment.date >= start_date,
-                Appointment.date <= end_date,
-                Appointment.status != AppointmentStatus.CANCELLED,
-            )
-        ) or 0
-        
-        by_provider.append({
-            "doctor_id": str(doctor.id),
-            "doctor_name": doctor.name,
-            "appointment_count": count,
-        })
-    
-    # Sort by count descending
-    by_provider.sort(key=lambda x: x["appointment_count"], reverse=True)
-    
-    total = sum(p["appointment_count"] for p in by_provider)
-    
-    return AppointmentsByProviderResponse(
-        start_date=start_date,
-        end_date=end_date,
-        total=total,
-        by_provider=by_provider,
-    )

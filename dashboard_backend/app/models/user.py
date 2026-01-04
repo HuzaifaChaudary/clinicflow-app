@@ -1,92 +1,30 @@
-"""
-User Model
-
-Represents authenticated users in the system.
-Uses Google OAuth for authentication.
-"""
-
-import uuid
-from datetime import datetime
-from sqlalchemy import Column, String, Boolean, Enum, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, String, DateTime, ForeignKey, CheckConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+import uuid
 from app.database import Base
-import enum
-
-
-class UserRole(str, enum.Enum):
-    """User roles in the system."""
-    ADMIN = "admin"
-    DOCTOR = "doctor"
-    OWNER = "owner"
 
 
 class User(Base):
-    """User entity - authenticated users."""
-    
     __tablename__ = "users"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
-    
-    # Google OAuth fields
-    google_id = Column(String(255), unique=True, nullable=True)
-    picture = Column(String(500), nullable=True)
-    
-    # Profile
-    first_name = Column(String(100), nullable=True)
-    last_name = Column(String(100), nullable=True)
-    
-    # Role & Clinic
-    role = Column(Enum(UserRole), nullable=False, default=UserRole.ADMIN)
-    clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id"), nullable=True)
-    
-    # Status
-    is_active = Column(Boolean, default=True)
-    email_verified = Column(Boolean, default=False)
-    
-    # Metadata
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow)
-    last_login_at = Column(TIMESTAMP, nullable=True)
-    
-    # Relationships
-    clinic = relationship("Clinic", back_populates="users")
-    doctor_profile = relationship("Doctor", back_populates="user", uselist=False)
-    sessions = relationship("Session", back_populates="user", cascade="all, delete-orphan")
-    
-    @property
-    def full_name(self) -> str:
-        """Get user's full name."""
-        if self.first_name and self.last_name:
-            return f"{self.first_name} {self.last_name}"
-        return self.email
-    
-    def __repr__(self):
-        return f"<User {self.email} ({self.role.value})>"
+    password_hash = Column(String(255), nullable=True)  # Nullable for Google OAuth users
+    google_id = Column(String(255), unique=True, nullable=True, index=True)  # Google OAuth ID
+    name = Column(String(255), nullable=False)
+    role = Column(String(20), nullable=False)
+    clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id"), nullable=False)
+    doctor_id = Column(UUID(as_uuid=True), ForeignKey("doctors.id"), nullable=True)
+    status = Column(String(20), default="active")
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-
-class Session(Base):
-    """User sessions for token management."""
-    
-    __tablename__ = "sessions"
-    
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    
-    # Token info
-    refresh_token = Column(String(500), nullable=False, unique=True, index=True)
-    
-    # Expiration
-    expires_at = Column(TIMESTAMP, nullable=False)
-    
-    # Metadata
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    user_agent = Column(String(500), nullable=True)
-    ip_address = Column(String(50), nullable=True)
-    
     # Relationships
-    user = relationship("User", back_populates="sessions")
-    
-    def __repr__(self):
-        return f"<Session {self.id} for user {self.user_id}>"
+    clinic = relationship("Clinic", backref="users")
+    doctor = relationship("Doctor", foreign_keys=[doctor_id], backref="user_accounts")
+
+    __table_args__ = (
+        CheckConstraint("role IN ('admin', 'doctor', 'owner')", name="check_role"),
+    )
+

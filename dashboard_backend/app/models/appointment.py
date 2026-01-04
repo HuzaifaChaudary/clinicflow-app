@@ -1,101 +1,52 @@
-"""
-Appointment Model
-
-Represents scheduled appointments between patients and doctors.
-"""
-
-import uuid
-from datetime import datetime, date, time
-from sqlalchemy import Column, String, Integer, Boolean, Date, Time, Enum, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, String, Date, Time, Integer, Boolean, DateTime, ForeignKey, CheckConstraint, Index, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+import uuid
 from app.database import Base
-import enum
-
-
-class VisitType(str, enum.Enum):
-    """Type of visit."""
-    IN_CLINIC = "in_clinic"
-    VIRTUAL = "virtual"
-
-
-class VisitCategory(str, enum.Enum):
-    """Category of visit."""
-    NEW_PATIENT = "new_patient"
-    FOLLOW_UP = "follow_up"
-
-
-class AppointmentStatus(str, enum.Enum):
-    """Status of an appointment."""
-    UNCONFIRMED = "unconfirmed"
-    CONFIRMED = "confirmed"
-    ARRIVED = "arrived"
-    IN_PROGRESS = "in_progress"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-    NO_SHOW = "no_show"
-
-
-class IntakeStatus(str, enum.Enum):
-    """Status of intake form."""
-    NOT_SENT = "not_sent"
-    SENT = "sent"
-    COMPLETED = "completed"
-    SKIPPED = "skipped"
 
 
 class Appointment(Base):
-    """Appointment entity."""
-    
     __tablename__ = "appointments"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id"), nullable=False)
     doctor_id = Column(UUID(as_uuid=True), ForeignKey("doctors.id"), nullable=False)
     patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"), nullable=False)
     
     # Scheduling
-    scheduled_date = Column(Date, nullable=False, index=True)
+    date = Column(Date, nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
     duration = Column(Integer, default=30)  # minutes
     
     # Type & Status
-    visit_type = Column(Enum(VisitType), nullable=False, default=VisitType.IN_CLINIC)
-    visit_category = Column(Enum(VisitCategory), default=VisitCategory.FOLLOW_UP)
-    status = Column(Enum(AppointmentStatus), default=AppointmentStatus.UNCONFIRMED, index=True)
-    
-    # Arrived tracking
-    arrived = Column(Boolean, default=False)
-    arrived_at = Column(TIMESTAMP, nullable=True)
-    
-    # Visit details
-    visit_reason = Column(String(500), nullable=True)
+    visit_type = Column(String(20))
+    visit_category = Column(String(20))
+    status = Column(String(20), default="unconfirmed")
     
     # Intake
-    intake_status = Column(Enum(IntakeStatus), default=IntakeStatus.NOT_SENT)
-    intake_form_id = Column(UUID(as_uuid=True), ForeignKey("intake_submissions.id"), nullable=True)
+    intake_status = Column(String(20), default="missing")
     
-    # Attention flags
-    needs_attention = Column(Boolean, default=False)
-    attention_reason = Column(String(100), nullable=True)
+    # Flags
+    arrived = Column(Boolean, default=False)
+    arrived_at = Column(DateTime(timezone=True), nullable=True)
+    meeting_link = Column(String(500), nullable=True)  # For virtual visits
     
-    # Video visits
-    meeting_link = Column(String(500), nullable=True)
-    
-    # Metadata
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP, default=datetime.utcnow, onupdate=datetime.utcnow)
-    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
     # Relationships
-    clinic = relationship("Clinic", back_populates="appointments")
-    doctor = relationship("Doctor", back_populates="appointments")
-    patient = relationship("Patient", back_populates="appointments")
-    creator = relationship("User", foreign_keys=[created_by])
-    intake_submission = relationship("IntakeSubmission", foreign_keys=[intake_form_id], post_update=True)
-    cancellation = relationship("Cancellation", back_populates="appointment", uselist=False)
-    intake_token = relationship("IntakeToken", back_populates="appointment", uselist=False)
-    
-    def __repr__(self):
-        return f"<Appointment {self.id} on {self.scheduled_date} at {self.start_time}>"
+    clinic = relationship("Clinic", backref="appointments")
+    doctor = relationship("Doctor", backref="appointments")
+    patient = relationship("Patient", backref="appointments")
+
+    __table_args__ = (
+        CheckConstraint("visit_type IN ('in-clinic', 'virtual')", name="check_visit_type"),
+        CheckConstraint("visit_category IN ('new-patient', 'follow-up')", name="check_visit_category"),
+        CheckConstraint("status IN ('confirmed', 'unconfirmed', 'cancelled', 'completed', 'no-show')", name="check_status"),
+        CheckConstraint("intake_status IN ('missing', 'sent', 'completed')", name="check_intake_status"),
+        Index("idx_appointments_clinic_date", "clinic_id", "date"),
+        Index("idx_appointments_doctor_date", "doctor_id", "date"),
+        Index("idx_appointments_patient", "patient_id"),
+    )
+

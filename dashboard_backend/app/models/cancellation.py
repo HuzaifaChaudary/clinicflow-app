@@ -1,59 +1,34 @@
-"""
-Cancellation Model
-
-Tracks appointment cancellations with detailed history.
-"""
-
-import uuid
-from datetime import datetime, date, time
-from sqlalchemy import Column, String, Text, Date, Time, Enum, ForeignKey, TIMESTAMP
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, CheckConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
+import uuid
 from app.database import Base
-import enum
-
-
-class CancellationType(str, enum.Enum):
-    """Type of cancellation."""
-    PATIENT_CANCELLED = "patient_cancelled"
-    NO_SHOW = "no_show"
-    RESCHEDULED_EXTERNALLY = "rescheduled_externally"
-    CLINIC_CANCELLED = "clinic_cancelled"
-    OTHER = "other"
 
 
 class Cancellation(Base):
-    """Cancellation record for appointments."""
-    
     __tablename__ = "cancellations"
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     appointment_id = Column(UUID(as_uuid=True), ForeignKey("appointments.id"), nullable=False)
     clinic_id = Column(UUID(as_uuid=True), ForeignKey("clinics.id"), nullable=False)
     patient_id = Column(UUID(as_uuid=True), ForeignKey("patients.id"), nullable=False)
-    doctor_id = Column(UUID(as_uuid=True), ForeignKey("doctors.id"), nullable=True)
     
-    # Cancellation details
-    cancellation_type = Column(Enum(CancellationType), nullable=False)
-    reason_note = Column(Text, nullable=True)
+    cancellation_type = Column(String(30), nullable=False)
+    reason_note = Column(Text)
+    cancelled_by_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
     
-    # Who cancelled
-    cancelled_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
-    cancelled_by_name = Column(String(255), nullable=True)
-    
-    # Original appointment details (for history)
-    original_date = Column(Date, nullable=True)
-    original_time = Column(Time, nullable=True)
-    
-    # Metadata
-    created_at = Column(TIMESTAMP, default=datetime.utcnow)
-    
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
     # Relationships
-    appointment = relationship("Appointment", back_populates="cancellation")
-    clinic = relationship("Clinic")
-    patient = relationship("Patient", back_populates="cancellations")
-    doctor = relationship("Doctor")
-    cancelled_by_user = relationship("User", foreign_keys=[cancelled_by])
-    
-    def __repr__(self):
-        return f"<Cancellation {self.id} type={self.cancellation_type.value}>"
+    appointment = relationship("Appointment", backref="cancellation_history")
+    clinic = relationship("Clinic", backref="cancellations")
+    patient = relationship("Patient", backref="cancellations")
+    cancelled_by = relationship("User", backref="cancellations_made")
+
+    __table_args__ = (
+        CheckConstraint(
+            "cancellation_type IN ('patient-cancelled', 'no-show', 'rescheduled-externally', 'clinic-cancelled', 'other')",
+            name="check_cancellation_type"
+        ),
+    )
+
