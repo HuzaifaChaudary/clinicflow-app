@@ -9,13 +9,13 @@ Based on: `flows.md`, `understandingDashboard.md`, `work.md` (preferred backend 
 ## Build Priority
 
 | Priority | Component | Status |
-| Priority | Component | Status |
 |----------|-----------|--------|
 | P0 | Auth + Role System | Must Build |
 | P0 | Core Entities (Clinic, Doctor, Patient, Appointment) | Must Build |
 | P0 | Scheduling Engine | Must Build |
 | P0 | Dashboard Stats (Hero Cards) | Must Build |
 | P1 | Intake Forms (Basic) | Must Build |
+| P1 | Public Intake Token System (Patient-facing) | Must Build |
 | P1 | AI Intake Summary | Must Build |
 | P1 | Doctor Notes | Must Build |
 | P1 | Follow-up Scheduling | Must Build |
@@ -520,6 +520,21 @@ CREATE TABLE intake_submissions (
   submitted_at TIMESTAMP DEFAULT NOW(),
   created_at TIMESTAMP DEFAULT NOW()
 );
+
+-- Intake tokens for public (unauthenticated) patient form submission
+CREATE TABLE intake_tokens (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  appointment_id UUID REFERENCES appointments(id) NOT NULL,
+  patient_id UUID REFERENCES patients(id) NOT NULL,
+  template_id UUID REFERENCES intake_form_templates(id) NOT NULL,
+  token VARCHAR(100) UNIQUE NOT NULL,
+  expires_at TIMESTAMP NOT NULL,
+  used_at TIMESTAMP,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_intake_tokens_token ON intake_tokens(token);
+CREATE INDEX idx_intake_tokens_appointment ON intake_tokens(appointment_id);
 ```
 
 #### API Endpoints
@@ -601,6 +616,56 @@ GET    /api/appointments/:id/preparation
 
 ---
 
+
+---
+
+### 5b. Public Intake Form Submission (Patient-Facing, No Auth Required)
+
+This is the patient-facing flow when they click the intake link from email/SMS. **Critical for MVP demo.**
+
+#### Public Intake API Endpoints
+
+```
+# Get intake form for patient (PUBLIC - no auth required)
+GET    /api/public/intake/:token
+       -> Validates token exists and not expired
+       -> Validates token not already used
+       -> Returns:
+       {
+         patient_name: "John",
+         appointment_date: "2026-01-06",
+         appointment_time: "10:00 AM",
+         doctor_name: "Dr. Chen",
+         form: {
+           name: "New Patient Intake",
+           fields: [...]
+         }
+       }
+       
+       Error responses:
+       - 404: Token not found
+       - 410: Token expired
+       - 409: Form already submitted
+
+# Submit intake form (PUBLIC - no auth required)
+POST   /api/public/intake/:token
+       Body: { responses: {...} }
+       
+       -> Validates token exists, not expired, not used
+       -> Creates intake_submissions record
+       -> Marks token as used (used_at = NOW())
+       -> Updates appointment.intake_status to 'completed'
+       -> Triggers async AI summary generation (Celery task)
+       -> Returns: { success: true, message: "Thank you!" }
+       
+       Error responses:
+       - 404: Token not found
+       - 410: Token expired  
+       - 409: Form already submitted
+       - 422: Validation errors
+```
+
+---
 ### 6. Doctor Notes (from flows.md)
 
 Doctors can add clinical notes to patient records. Only the doctor who created the note can see it.
@@ -1044,6 +1109,7 @@ backend/
 | Appointment detail view | Medical AI features |
 | Cancellation history | Multi-location support |
 | Basic intake forms | Audit logging |
+| **Public intake token system** | |
 | AI intake summary | |
 | Doctor Notes | |
 | Follow-up scheduling | |
