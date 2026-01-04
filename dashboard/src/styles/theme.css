@@ -1,0 +1,333 @@
+@import "./fonts.css";
+
+@layer theme, base;
+
+@layer theme {
+  :root {
+    /* ============================================
+       Clinicflow Color Token System (Blue-Grey)
+       ============================================ */
+    
+    /* Base Neutrals (Light Mode) */
+    --cf-neutral-00: #FFFFFF;
+    --cf-neutral-05: #F4F6F9;
+    --cf-neutral-10: #EDF1F6;
+    --cf-neutral-20: #D9E0EA;
+    --cf-neutral-70: #5B677A;
+    --cf-neutral-90: #1E293B;
+
+    /* Brand Accent (Blue-Grey) */
+    --cf-blue-40: #9DB7E5;
+    --cf-blue-60: #5B8DEF;
+    --cf-blue-80: #3B6FE2;
+
+    /* Status Tokens (Muted, Professional) */
+    --cf-success: #4DA3A1;
+    --cf-warning: #F2A65A;
+    --cf-info: #7BA7E1;
+    --cf-error: #E07A5F;
+
+    /* Light Mode Semantic Tokens */
+    --surface-primary: var(--cf-neutral-00);
+    --surface-canvas: var(--cf-neutral-05);
+    --surface-card: var(--cf-neutral-10);
+    --surface-hover: rgba(91, 141, 239, 0.04);
+    
+    --text-primary: var(--cf-neutral-90);
+    --text-secondary: var(--cf-neutral-70);
+    --text-muted: #8896AC;
+    --text-inverse: var(--cf-neutral-00);
+    
+    --border-default: var(--cf-neutral-20);
+    --border-subtle: rgba(217, 224, 234, 0.5);
+    
+    --accent-primary: var(--cf-blue-60);
+    --accent-hover: var(--cf-blue-80);
+    --accent-subtle: var(--cf-blue-40);
+    --accent-primary-bg: rgba(91, 141, 239, 0.08);
+    --accent-primary-text: var(--cf-blue-60);
+    
+    /* Status Colors */
+    --status-success: var(--cf-success);
+    --status-warning: var(--cf-warning);
+    --status-info: var(--cf-info);
+    --status-error: var(--cf-error);
+    
+    --status-success-bg: rgba(77, 163, 161, 0.08);
+    --status-warning-bg: rgba(242, 166, 90, 0.08);
+    --status-info-bg: rgba(123, 167, 225, 0.08);
+    --status-error-bg: rgba(224, 122, 95, 0.08);
+
+    /* Glass Effect (iOS-like, Controlled) */
+    --glass-bg: rgba(255, 255, 255, 0.6);
+    --glass-border: rgba(255, 255, 255, 0.35);
+    --glass-blur: 14px;
+
+    /* Elevation System (Light Mode) */
+    --shadow-1: 0px 1px 2px rgba(16, 24, 40, 0.04);
+    --shadow-2: 0px 8px 24px rgba(16, 24, 40, 0.08);
+    --shadow-3: 0px 12px 32px rgba(16, 24, 40, 0.12);
+
+    /* Card Radii (Signature) */
+    --radius-sm: 14px;
+    --radius-md: 18px;
+    --radius-lg: 22px;
+    --radius-pill: 999px;
+
+    /* Typography */
+    --font-size: 16px;
+    --font-weight-normal: 400;
+    --font-weight-medium: 500;
+    --font-weight-semibold: 600;
+    
+    --text-xs: 12px;
+    --text-sm: 14px;
+    --text-base: 16px;
+    --text-lg: 18px;
+    --text-xl: 20px;
+    --text-2xl: 24px;
+    --text-3xl: 30px;
+
+    /* Motion Tokens (Intentional, Not Playful) */
+    --motion-hover: 150ms;
+    --motion-state: 200ms;
+    --motion-panel: 250ms;
+
+    /* Accent Secondary (for gradients) */
+    --accent-secondary: #7BA7E1;
+  }
+
+  [data-theme="dark"] {
+    /* Dark Mode Base */
+    --cf-dark-00: #0F141B;
+    --cf-dark-10: #151B26;
+    --cf-dark-20: #1D2433;
+    --cf-dark-60: #A3AEC2;
+    --cf-dark-90: #E6EBF3;
+
+    /* Dark Mode Semantic Tokens */
+    --surface-primary: var(--cf-dark-00);
+    --surface-canvas: var(--cf-dark-10);
+    --surface-card: var(--cf-dark-20);
+    --surface-hover: rgba(91, 141, 239, 0.08);
+    
+    --text-primary: var(--cf-dark-90);
+    --text-secondary: var(--cf-dark-60);
+    --text-muted: #7B8699;
+    --text-inverse: var(--cf-dark-00);
+    
+    --border-default: rgba(163, 174, 194, 0.15);
+    --border-subtle: rgba(163, 174, 194, 0.08);
+    
+    /* Status Colors (Muted for Dark Mode) */
+    --status-success: #5FB3B1;
+    --status-warning: #F4B67A;
+    --status-info: #8FB9EA;
+    --status-error: #E8927A;
+    
+    --status-success-bg: rgba(95, 179, 177, 0.12);
+    --status-warning-bg: rgba(244, 182, 122, 0.12);
+    --status-info-bg: rgba(143, 185, 234, 0.12);
+    --status-error-bg: rgba(232, 146, 122, 0.12);
+
+    /* Glass Effect (Dark Mode) */
+    --glass-bg: rgba(29, 36, 51, 0.6);
+    --glass-border: rgba(163, 174, 194, 0.15);
+    --glass-blur: 14px;
+
+    /* Elevation System (Dark Mode) */
+    --shadow-1: 0px 2px 6px rgba(0, 0, 0, 0.4);
+    --shadow-2: 0px 4px 16px rgba(0, 0, 0, 0.6);
+    --shadow-3: 0px 8px 24px rgba(0, 0, 0, 0.8);
+  }
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: var(--font-size);
+    font-weight: var(--font-weight-normal);
+    line-height: 1.5;
+    color: var(--text-primary);
+    background-color: var(--surface-canvas);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Typography Defaults */
+  h1 {
+    font-size: var(--text-3xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.3;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: var(--text-2xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  h3 {
+    font-size: var(--text-xl);
+    font-weight: var(--font-weight-semibold);
+    line-height: 1.4;
+    margin: 0;
+  }
+
+  h4 {
+    font-size: var(--text-lg);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    margin: 0;
+  }
+
+  p {
+    margin: 0;
+  }
+
+  button {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  input, textarea, select {
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  /* Glass Effect Utility (Use Sparingly) */
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(var(--glass-blur));
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+  }
+
+  /* Motion Utilities (Intentional Timing) */
+  .motion-hover {
+    transition: all var(--motion-hover) ease-out;
+  }
+
+  .motion-state {
+    transition: all var(--motion-state) ease-out;
+  }
+
+  .motion-panel {
+    transition: all var(--motion-panel) ease-out;
+  }
+
+  /* Custom Animations (Restrained) */
+  @keyframes gentle-pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.6;
+    }
+  }
+
+  .animate-gentle-pulse {
+    animation: gentle-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.95;
+      transform: scale(0.998);
+    }
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 3s ease-in-out infinite;
+  }
+
+  @keyframes slide-in-right {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right var(--motion-panel) ease-out;
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+      transform: translateY(-4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .animate-fade-in {
+    animation: fade-in var(--motion-hover) ease-out;
+  }
+
+  @keyframes lift {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(-2px);
+    }
+  }
+
+  .animate-lift {
+    animation: lift var(--motion-hover) ease-out forwards;
+  }
+
+  @keyframes ping-slow {
+    0% {
+      transform: scale(1);
+      opacity: 0.3;
+    }
+    75%, 100% {
+      transform: scale(2);
+      opacity: 0;
+    }
+  }
+
+  .animate-ping-slow {
+    animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
+
+  @keyframes highlight-pulse {
+    0%, 100% {
+      box-shadow: 0px 8px 24px rgba(16, 24, 40, 0.08);
+    }
+    50% {
+      box-shadow: 0px 8px 32px rgba(91, 141, 239, 0.25);
+    }
+  }
+
+  .animate-highlight-pulse {
+    animation: highlight-pulse 1.5s ease-in-out;
+  }
+}
