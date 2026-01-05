@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Optional
 from uuid import UUID
+from datetime import date
 from app.database import get_db
 from app.models.patient import Patient
 from app.models.appointment import Appointment
@@ -17,32 +18,45 @@ router = APIRouter(prefix="/api/patients", tags=["patients"])
 def list_patients(
     skip: int = 0,
     limit: int = 100,
+    search: Optional[str] = Query(None, description="Search by name, email, or phone"),
+    created_after: Optional[date] = Query(None, description="Filter by creation date (after)"),
+    created_before: Optional[date] = Query(None, description="Filter by creation date (before)"),
     current_user: User = Depends(require_admin_or_doctor),
     db: Session = Depends(get_db)
 ):
-    """List patients - role-based filtering"""
+    """List patients - role-based filtering with search and date filters"""
+    # Build base query based on role
     if current_user.role == "admin":
         # Admin sees all patients in clinic
-        patients = db.query(Patient).filter(
-            Patient.clinic_id == current_user.clinic_id
-        ).offset(skip).limit(limit).all()
-        total = db.query(Patient).filter(
-            Patient.clinic_id == current_user.clinic_id
-        ).count()
+        query = db.query(Patient).filter(Patient.clinic_id == current_user.clinic_id)
     else:
         # Doctor sees only patients with appointments to them
-        patients = db.query(Patient).join(
+        query = db.query(Patient).join(
             Appointment, Appointment.patient_id == Patient.id
         ).filter(
             Appointment.doctor_id == current_user.doctor_id,
             Patient.clinic_id == current_user.clinic_id
-        ).distinct().offset(skip).limit(limit).all()
-        total = db.query(Patient).join(
-            Appointment, Appointment.patient_id == Patient.id
-        ).filter(
-            Appointment.doctor_id == current_user.doctor_id,
-            Patient.clinic_id == current_user.clinic_id
-        ).distinct().count()
+        ).distinct()
+    
+    # Apply search filter
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (Patient.first_name.ilike(search_term)) |
+            (Patient.last_name.ilike(search_term)) |
+            (Patient.email.ilike(search_term)) |
+            (Patient.phone.ilike(search_term))
+        )
+    
+    # Apply date filters
+    if created_after:
+        query = query.filter(Patient.created_at >= created_after)
+    if created_before:
+        query = query.filter(Patient.created_at <= created_before)
+    
+    # Get total and paginated results
+    total = query.count()
+    patients = query.offset(skip).limit(limit).all()
     
     return PatientList(
         items=[PatientResponse(
@@ -170,6 +184,37 @@ def update_patient(
         created_at=patient.created_at,
         updated_at=patient.updated_at
     )
+
+
+@router.delete("/{patient_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_patient(
+    patient_id: UUID,
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Delete patient (admin only) - checks for existing appointments"""
+    patient = db.query(Patient).filter(
+        Patient.id == patient_id,
+        Patient.clinic_id == current_user.clinic_id
+    ).first()
+    
+    if not patient:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Patient not found")
+    
+    # Check if patient has any appointments
+    appointment_count = db.query(Appointment).filter(
+        Appointment.patient_id == patient_id
+    ).count()
+    
+    if appointment_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete patient with {appointment_count} existing appointments"
+        )
+    
+    db.delete(patient)
+    db.commit()
+    return None
 
 
 @router.get("/{patient_id}/appointments", response_model=List[AppointmentResponse])

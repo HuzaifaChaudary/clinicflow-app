@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
-from typing import List
+from typing import List, Optional
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, date
 from app.database import get_db
 from app.models.intake import IntakeForm, AIIntakeSummary
 from app.models.appointment import Appointment
 from app.schemas.intake import (
     IntakeFormCreate, IntakeFormResponse, AIIntakeSummaryResponse, IntakeMarkComplete
 )
+from app.schemas.intake_list import IntakeFormList
 from app.api.deps import get_current_user, require_admin_or_doctor, require_admin
 from app.models.user import User
 from app.services.ai_service import generate_intake_summary
@@ -16,14 +17,17 @@ from app.services.ai_service import generate_intake_summary
 router = APIRouter(prefix="/api/intake", tags=["intake"])
 
 
-@router.get("/forms", response_model=List[IntakeFormResponse])
+@router.get("/forms", response_model=IntakeFormList)
 def list_intake_forms(
     skip: int = 0,
     limit: int = 100,
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status (pending, completed, reviewed)"),
+    submitted_after: Optional[date] = Query(None, description="Filter by submission date (after)"),
+    submitted_before: Optional[date] = Query(None, description="Filter by submission date (before)"),
     current_user: User = Depends(require_admin_or_doctor),
     db: Session = Depends(get_db)
 ):
-    """List intake forms with role-based filtering"""
+    """List intake forms with role-based filtering, status, and date filters"""
     query = db.query(IntakeForm).options(
         joinedload(IntakeForm.ai_summary)
     ).filter(
@@ -36,6 +40,22 @@ def list_intake_forms(
             Appointment.doctor_id == current_user.doctor_id
         )
     
+    # Apply status filter
+    if status_filter:
+        query = query.filter(IntakeForm.status == status_filter)
+    
+    # Apply date filters
+    if submitted_after:
+        query = query.filter(IntakeForm.submitted_at >= submitted_after)
+    if submitted_before:
+        query = query.filter(IntakeForm.submitted_at <= submitted_before)
+    
+    # Get total and paginated results
+    total = query.count()
+    intake_forms = query.offset(skip).limit(limit).all()
+    
+    # Get total and paginated results
+    total = query.count()
     intake_forms = query.offset(skip).limit(limit).all()
     
     result = []
@@ -55,7 +75,12 @@ def list_intake_forms(
             form_data.ai_summary = AIIntakeSummaryResponse.model_validate(form.ai_summary)
         result.append(form_data)
     
-    return result
+    return IntakeFormList(
+        items=result,
+        total=total,
+        skip=skip,
+        limit=limit
+    )
 
 
 @router.get("/forms/{form_id}", response_model=IntakeFormResponse)

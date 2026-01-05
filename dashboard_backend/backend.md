@@ -2218,12 +2218,15 @@ Every single task from MVP.md was implemented line-by-line without skipping. All
 
 **Endpoints Implemented:**
 
-1. **`GET /api/patients` - List Patients (Role-Based Filtering)**
-   - **Purpose:** Get paginated list of patients with role-based access control
+1. **`GET /api/patients` - List Patients (Role-Based Filtering with Search and Date Filters)**
+   - **Purpose:** Get paginated list of patients with role-based access control, search capability, and date filtering
    - **Authentication:** Required (admin or doctor)
    - **Query Parameters:**
      - `skip: int` - Number of records to skip (default: 0)
      - `limit: int` - Maximum number of records to return (default: 100)
+     - `search: str` - Search term for name, email, or phone (optional)
+     - `created_after: date` - Filter patients created after this date (optional)
+     - `created_before: date` - Filter patients created before this date (optional)
    - **Response:** `PatientList` schema (items array, total count)
    - **Role-Based Filtering Logic:**
      - **Admin Role:**
@@ -2236,11 +2239,21 @@ Every single task from MVP.md was implemented line-by-line without skipping. All
        - Filter by `doctor_id == current_user.doctor_id`
        - Use `.distinct()` to prevent duplicate patients
        - Additional filter by `clinic_id` for security
+   - **Search Implementation:**
+     - Performs case-insensitive search using ILIKE operator
+     - Searches across: first_name, last_name, email, phone
+     - Uses OR condition to match any field
+     - Example: `search=john` matches "John Smith", "johnson@email.com", etc.
+   - **Date Filtering:**
+     - `created_after`: Filters patients where created_at >= specified date
+     - `created_before`: Filters patients where created_at <= specified date
+     - Both filters can be combined for date range queries
    - **Implementation Details:**
-     - Conditionally builds query based on user role
-     - Uses SQLAlchemy JOIN for doctor role filtering
+     - Builds base query based on user role
+     - Applies search filter if provided
+     - Applies date filters if provided
+     - Counts total matching records after all filters
      - Applies pagination (offset/limit) after filtering
-     - Counts total matching records for pagination metadata
      - Manually constructs PatientResponse to include computed `full_name`
    - **Security:** Doctors cannot see patients they haven't treated
    - **Status Codes:**
@@ -2340,12 +2353,43 @@ Every single task from MVP.md was implemented line-by-line without skipping. All
      - 403: Not admin or doctor
      - 404: Patient not found
 
+6. **`DELETE /api/patients/{patient_id}` - Delete Patient**
+   - **Purpose:** Delete a patient record (admin only, with appointment validation)
+   - **Authentication:** Required (admin only)
+   - **Path Parameters:**
+     - `patient_id: UUID` - Patient ID from URL path
+   - **Response:** 204 No Content (successful deletion)
+   - **Validation Logic:**
+     - Verifies patient exists and belongs to clinic
+     - Checks if patient has any existing appointments
+     - Prevents deletion if appointments exist (business rule)
+     - Returns error with appointment count if deletion blocked
+   - **Implementation Details:**
+     - Queries patient by ID and clinic_id (verifies ownership)
+     - Returns HTTP 404 if patient not found or wrong clinic
+     - Counts appointments linked to this patient
+     - Returns HTTP 400 with error message if appointments exist
+     - Example error: "Cannot delete patient with 3 existing appointments"
+     - Deletes patient from database only if no appointments
+     - Commits transaction
+   - **Business Rule:** Cannot delete patients with appointment history
+   - **Access Control:** Only admin can delete patients
+   - **Status Codes:**
+     - 204: Patient deleted successfully (no content)
+     - 400: Cannot delete patient with existing appointments
+     - 401: Not authenticated
+     - 403: Not admin
+     - 404: Patient not found
+
 **Key Features:**
 - Advanced role-based filtering: Different query logic for admin vs doctor
+- Search capability: Case-insensitive search across multiple fields (name, email, phone)
+- Date filtering: Filter patients by creation date range
 - SQL JOIN operations: Efficient filtering for doctor role
 - Computed fields: full_name property extracted from model
 - Strict access control: Doctors see only their patients
 - Relationship queries: Patient appointments endpoint with role filtering
+- Safe deletion: Validates no appointments before allowing patient deletion
 
 **Security Implementation:**
 - Clinic-level isolation: All queries filter by clinic_id
@@ -2701,9 +2745,14 @@ All status management endpoints were implemented as part of the Appointments Rou
 - `DELETE /api/doctors/{id}` - Delete doctor
 
 **Patients:**
-- `GET /api/patients` - List patients (role-based)
+- `GET /api/patients` - List patients (role-based, with search and date filters)
+- `GET /api/patients?search={term}` - Search patients by name, email, or phone
+- `GET /api/patients?created_after={date}&created_before={date}` - Filter patients by creation date
 - `GET /api/patients/{id}` - Get patient (role-based)
 - `POST /api/patients` - Create patient
+- `PUT /api/patients/{id}` - Update patient
+- `DELETE /api/patients/{id}` - Delete patient (admin only, validates no appointments exist)
+- `GET /api/patients/{id}/appointments` - Patient appointments
 - `PUT /api/patients/{id}` - Update patient
 - `GET /api/patients/{id}/appointments` - Patient appointments
 
@@ -3168,24 +3217,38 @@ Every single task from MVP.md was implemented line-by-line without skipping. All
 
 **Endpoints Implemented:**
 
-1. **`GET /api/intake/forms` - List Intake Forms**
-   - **Purpose:** Get paginated list of intake forms with role-based filtering
+1. **`GET /api/intake/forms` - List Intake Forms (With Pagination and Filters)**
+   - **Purpose:** Get paginated list of intake forms with role-based filtering, status filter, and date range filtering
    - **Authentication:** Required (admin or doctor)
    - **Query Parameters:**
      - `skip: int` - Number of records to skip (default: 0)
      - `limit: int` - Maximum number of records to return (default: 100)
-   - **Response:** `List[IntakeFormResponse]` - Array of intake form responses
+     - `status: str` - Filter by form status: "pending", "completed", or "reviewed" (optional)
+     - `submitted_after: date` - Filter forms submitted after this date (optional)
+     - `submitted_before: date` - Filter forms submitted before this date (optional)
+   - **Response:** `IntakeFormList` - Paginated object with items, total, skip, and limit
    - **Role-Based Filtering:**
      - **Admin:** Sees all intake forms in clinic (filtered by clinic_id only)
      - **Doctor:** Sees only intake forms for their own patients (JOIN with Appointment table, filter by doctor_id)
+   - **Status Filtering:**
+     - Filters forms by exact status match
+     - Supports statuses: "pending", "completed", "reviewed"
+     - Only applies if status parameter provided
+   - **Date Filtering:**
+     - `submitted_after`: Filters forms where submitted_at >= specified date
+     - `submitted_before`: Filters forms where submitted_at <= specified date
+     - Both filters can be combined for date range queries
    - **Implementation Details:**
      - Uses `joinedload(IntakeForm.ai_summary)` to eagerly load AI summary relationships
-     - Base query filters by clinic_id (clinic-level isolation)
+     - Builds base query filtered by clinic_id (clinic-level isolation)
      - For doctor role: JOINs IntakeForm with Appointment table and filters by current_user.doctor_id
+     - Applies status filter if provided
+     - Applies date filters if provided
+     - Counts total matching records after all filters
      - Applies pagination (offset/limit)
      - Manually constructs `IntakeFormResponse` objects to handle nested AI summary
      - Checks if ai_summary exists and converts to `AIIntakeSummaryResponse` if present
-     - Returns list of intake forms with optional nested AI summaries
+     - Returns `IntakeFormList` with items array, total count, skip, and limit
    - **Access Control:** Admin (all forms) or Doctor (own patients' forms only)
    - **Status Codes:**
      - 200: Success
@@ -3587,7 +3650,9 @@ Every single task from MVP.md was implemented line-by-line without skipping. All
 - `GET /api/schedule/available-slots` - Get available time slots
 
 **Intake:**
-- `GET /api/intake/forms` - List intake forms (role-based)
+- `GET /api/intake/forms` - List intake forms (role-based, with pagination and filters)
+- `GET /api/intake/forms?status={status}` - Filter forms by status (pending, completed, reviewed)
+- `GET /api/intake/forms?submitted_after={date}&submitted_before={date}` - Filter forms by submission date
 - `GET /api/intake/forms/{form_id}` - Get intake form
 - `POST /api/intake/forms` - Submit intake form
 - `PUT /api/intake/forms/{form_id}/complete` - Mark form as complete
