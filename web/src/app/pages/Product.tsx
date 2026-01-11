@@ -451,7 +451,7 @@ export function Product() {
                   No sales pressure. Real workflows. Your questions answered.
                 </p>
 
-                <Link to="/contact">
+                <Link to="/trial">
                   <motion.button
                     className="w-full px-10 py-5 rounded-full text-lg mb-6"
                     style={{ 
@@ -470,8 +470,8 @@ export function Product() {
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    Book a 15 minute walkthrough
-                  </motion.button>
+                    Join Waitlist
+                    </motion.button>
                 </Link>
 
                 <Link 

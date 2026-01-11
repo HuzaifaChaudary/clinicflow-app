@@ -106,7 +106,7 @@ export function Physiotherapy() {
                       e.currentTarget.style.color = '#2563EB';
                     }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
               </div>
@@ -269,7 +269,7 @@ export function Physiotherapy() {
         </div>
       </section>
 
-      {/* HOW CLINICFLOW FITS PHYSIOTHERAPY WORKFLOWS */}
+      {/* HOW AXIS FITS PHYSIOTHERAPY WORKFLOWS */}
       <section className="relative py-32 border-t border-[var(--glass-border)]">
         <div className="max-w-[1400px] mx-auto px-8">
           <motion.div
@@ -281,7 +281,7 @@ export function Physiotherapy() {
           >
             <h2 className="mb-8">Designed for repeat care, not one off visits</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Physiotherapy care happens over weeks, not once. Clinicflow manages recurring schedules and communication so patients stay consistent without staff chasing them.
+              Physiotherapy care happens over weeks, not once. AXIS manages recurring schedules and communication so patients stay consistent without staff chasing them.
             </p>
           </motion.div>
 
@@ -569,7 +569,7 @@ export function Physiotherapy() {
           >
             <h2 className="mb-8">High volume handled quietly</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Admins configure rules once. Clinicflow handles confirmations, reschedules, and follow ups automatically. Staff only step in for exceptions.
+              Admins configure rules once. AXIS handles confirmations, reschedules, and follow ups automatically. Staff only step in for exceptions.
             </p>
           </motion.div>
 
@@ -690,7 +690,7 @@ export function Physiotherapy() {
             >
               <h2 className="mb-8">Built for how physiotherapy actually works</h2>
               <p className="text-xl text-[var(--foreground-muted)]">
-                Clinicflow supports high frequency visits, therapist schedules, and patient follow through without adding operational noise.
+                AXIS supports high frequency visits, therapist schedules, and patient follow through without adding operational noise.
               </p>
             </motion.div>
 
@@ -744,7 +744,7 @@ export function Physiotherapy() {
             >
               <h2 className="mb-6">Keep treatment plans moving</h2>
               <p className="text-xl text-[var(--foreground-muted)] mb-12">
-                See how Clinicflow supports physiotherapy clinics with real workflows.
+                See how AXIS supports physiotherapy clinics with real workflows.
               </p>
 
               <div className="max-w-[600px] mx-auto">
@@ -790,7 +790,7 @@ export function Physiotherapy() {
                         e.currentTarget.style.color = '#2563EB';
                       }}
                     >
-                      Join Waitlist for 3 Months Free Access
+                      Join Waitlist
                     </motion.button>
                   </Link>
                 </div>

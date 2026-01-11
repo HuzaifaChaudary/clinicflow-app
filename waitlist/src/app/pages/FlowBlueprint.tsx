@@ -113,7 +113,7 @@ export function FlowBlueprint() {
             </div>
             <h1 className="mb-6">Universal Vector Flow Blueprint</h1>
             <p className="text-xl text-[var(--foreground-muted)]">
-              One pattern. Three layouts. Every process flow across Clinicflow follows this exact structure.
+              One pattern. Three layouts. Every process flow across AXIS follows this exact structure.
             </p>
           </motion.div>
         </div>

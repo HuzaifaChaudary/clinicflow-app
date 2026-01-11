@@ -105,7 +105,7 @@ export function MentalHealth() {
                       e.currentTarget.style.color = '#2563EB';
                     }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
               </div>
@@ -193,7 +193,7 @@ export function MentalHealth() {
         </div>
       </section>
 
-      {/* HOW CLINICFLOW FITS MENTAL HEALTH WORKFLOWS */}
+      {/* HOW AXIS FITS MENTAL HEALTH WORKFLOWS */}
       <section className="relative py-32 border-t border-[var(--glass-border)]">
         <div className="max-w-[1400px] mx-auto px-8">
           <motion.div
@@ -205,7 +205,7 @@ export function MentalHealth() {
           >
             <h2 className="mb-8">Designed around real clinic behavior</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Clinicflow does not push patients. It communicates clearly, politely, and at the right time. Messages feel human and give patients space to respond without pressure.
+              AXIS does not push patients. It communicates clearly, politely, and at the right time. Messages feel human and give patients space to respond without pressure.
             </p>
           </motion.div>
 
@@ -382,7 +382,7 @@ export function MentalHealth() {
           >
             <h2 className="mb-8">Routine handled quietly</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Admins set communication rules once. Clinicflow runs daily operations automatically. Staff step in only when a patient needs support or a session changes.
+              Admins set communication rules once. AXIS runs daily operations automatically. Staff step in only when a patient needs support or a session changes.
             </p>
           </motion.div>
 
@@ -474,7 +474,7 @@ export function MentalHealth() {
             >
               <h2 className="mb-8">Built with care in mind</h2>
               <p className="text-xl text-[var(--foreground-muted)]">
-                Mental health communication requires clarity and respect. Clinicflow avoids aggressive reminders, unnecessary alerts, and anything that feels automated or cold.
+                Mental health communication requires clarity and respect. AXIS avoids aggressive reminders, unnecessary alerts, and anything that feels automated or cold.
               </p>
             </motion.div>
 
@@ -518,7 +518,7 @@ export function MentalHealth() {
             >
               <h2 className="mb-6">Support care without adding noise</h2>
               <p className="text-xl text-[var(--foreground-muted)] mb-12">
-                See how Clinicflow works inside real mental health clinics.
+                See how AXIS works inside real mental health clinics.
               </p>
 
               <div className="max-w-[600px] mx-auto">
@@ -564,7 +564,7 @@ export function MentalHealth() {
                         e.currentTarget.style.color = '#2563EB';
                       }}
                     >
-                      Join Waitlist for 3 Months Free Access
+                      Join Waitlist
                     </motion.button>
                   </Link>
                 </div>

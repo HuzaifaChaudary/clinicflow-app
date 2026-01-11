@@ -82,7 +82,7 @@ export function InfiniteGridDemo() {
               </h1>
               
               <p className="text-2xl text-[var(--foreground-muted)] mb-12 max-w-3xl mx-auto">
-                Clinicflow handles scheduling, patient communication, and intake work. Your team focuses on care. Everything else runs quietly in the background.
+                AXIS handles scheduling, patient communication, and intake work. Your team focuses on care. Everything else runs quietly in the background.
               </p>
               
               <div className="flex items-center justify-center gap-4">
@@ -93,7 +93,7 @@ export function InfiniteGridDemo() {
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.2 }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
                 <Link to="/how-it-works">
@@ -373,7 +373,7 @@ export function InfiniteGridDemo() {
               <h2 className="mb-6">Your clinic runs smoother without adding staff</h2>
               <div className="space-y-6 text-lg text-[var(--foreground-muted)]">
                 <p>
-                  Clinicflow handles the operational work that pulls your team away from patient care.
+                  AXIS handles the operational work that pulls your team away from patient care.
                 </p>
                 <p>
                   Patients book appointments online. Voice confirmations reduce no shows. Intake forms get completed before arrival. Your schedule fills without constant phone interruptions.
@@ -485,7 +485,7 @@ export function InfiniteGridDemo() {
                 whileTap={{ scale: 0.98 }}
                 transition={{ duration: 0.2 }}
               >
-                Join Waitlist for 3 Months Free Access
+                Join Waitlist
               </motion.button>
             </Link>
           </motion.div>

@@ -108,7 +108,7 @@ background: var(--blue-primary) / 70%
 
 ### **Conversation Bubbles**
 
-**System Message (Clinicflow):**
+**System Message (AXIS):**
 ```tsx
 max-width: 80%
 padding: 24px
@@ -136,7 +136,7 @@ align: right
 - Font size: 12px
 - Color: white/80% (system), muted (patient)
 - Margin bottom: 8px
-- Text: "Clinicflow System" or "Patient"
+- Text: "AXIS System" or "Patient"
 
 ---
 
@@ -253,7 +253,7 @@ transform: translateY(-4px)  /* Lift upward */
 
 | Element | Color | Hex | Usage |
 |---------|-------|-----|-------|
-| System bubbles | Blue Primary | `#2563EB` | Clinicflow messages |
+| System bubbles | Blue Primary | `#2563EB` | AXIS messages |
 | Active node | Blue Primary | `#2563EB` | Current step |
 | Passed node | Blue Primary 70% | `rgba(37, 99, 235, 0.7)` | Completed steps |
 | Default node | Blue Soft | `#DBEAFE` | Upcoming steps |
@@ -284,7 +284,7 @@ background: linear-gradient(
 ### **1. Call Initiated**
 
 **Icon:** Phone  
-**System:** "Hi, this is Clinicflow calling to confirm your appointment with Dr. Smith tomorrow at 2 PM."  
+**System:** "Hi, this is AXIS calling to confirm your appointment with Dr. Smith tomorrow at 2 PM."  
 **Patient:** (none)  
 **Outcome:** Patient reached  
 **Metric:** 24-48h
@@ -550,7 +550,7 @@ const steps: ConversationFlowStep[] = [
     label: 'Step label',
     icon: LucideIcon,
     conversation: {
-      system: 'What Clinicflow says',
+      system: 'What AXIS says',
       patient: 'What patient does (optional)'
     },
     outcome: {

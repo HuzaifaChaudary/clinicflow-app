@@ -23,7 +23,7 @@ export interface ConversationFlowStep {
   label: string;
   icon: LucideIcon;
   conversation: {
-    system: string;      // What Clinicflow says/does
+    system: string;      // What AXIS says/does
     patient?: string;    // What patient experiences
     status?: 'sent' | 'delivered' | 'seen' | 'no-response';  // SMS only
   };
@@ -223,7 +223,7 @@ function VoiceCard({ step, index }: VoiceCardProps) {
         transition={{ duration: 0.5, delay: 0.2 }}
       >
         <div className="max-w-[85%] p-6 rounded-2xl rounded-tl-sm bg-[var(--blue-primary)] shadow-[0_4px_16px_rgba(37,99,235,0.3)]">
-          <div className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.75)' }}>Clinicflow System</div>
+          <div className="text-xs mb-2" style={{ color: 'rgba(255,255,255,0.75)' }}>AXIS System</div>
           <p className="text-base leading-relaxed" style={{ color: '#FFFFFF' }}>{step.conversation.system}</p>
         </div>
       </motion.div>

@@ -26,7 +26,7 @@ When they appear together:
 Voice calls demand attention. Design feels active, linear, authoritative.
 
 **Core Characteristics:**
-- Dominant Clinicflow Blue (#2563EB)
+- Dominant AXIS Blue (#2563EB)
 - White text on blue for system messages
 - Strong directional arrows
 - Clear vertical progression
@@ -62,7 +62,7 @@ This is the most important visual element in Voice flow.
 
 ```tsx
 <div className="bg-[var(--blue-primary)] text-white">
-  <div className="opacity-75">Clinicflow System</div>
+  <div className="opacity-75">AXIS System</div>
   <p>Press 1 to confirm, or press 2 to reschedule.</p>
 </div>
 ```
@@ -70,7 +70,7 @@ This is the most important visual element in Voice flow.
 **Specifications:**
 - Background: #2563EB (solid blue, no gradient)
 - Text: #FFFFFF (white)
-- Label: "Clinicflow System" at 75% opacity white
+- Label: "AXIS System" at 75% opacity white
 - No border
 - Shadow: 0 4px 16px rgba(37, 99, 235, 0.3)
 - Rounded corners with pointed top-left (rounded-tl-sm)
@@ -477,7 +477,7 @@ const voiceSteps: ConversationFlowStep[] = [
     label: 'Call initiated',
     icon: Phone,
     conversation: {
-      system: 'Hi, this is Clinicflow calling...',
+      system: 'Hi, this is AXIS calling...',
       patient: undefined
     },
     outcome: {

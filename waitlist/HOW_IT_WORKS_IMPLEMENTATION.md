@@ -21,7 +21,7 @@ This is not marketing fluff. This is a confidence page that shows process, flow,
 
 ### **SECTION 1: Hero — Horizontal Process Flow**
 
-**Goal:** Immediately show Clinicflow is process-driven, not feature-driven.
+**Goal:** Immediately show AXIS is process-driven, not feature-driven.
 
 **Layout:**
 - Left: Headline + explainer
@@ -483,7 +483,7 @@ const setupSteps: SetupStackStep[] = [
 
 ## 🎯 Final Check
 
-**Question:** Can someone understand the entire Clinicflow workflow by looking at the visuals alone?
+**Question:** Can someone understand the entire AXIS workflow by looking at the visuals alone?
 
 **Answer:** ✅ Yes
 

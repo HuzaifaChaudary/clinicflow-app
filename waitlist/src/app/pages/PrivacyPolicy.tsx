@@ -7,14 +7,14 @@ export function PrivacyPolicy() {
     {
       title: 'Introduction',
       content: [
-        'Clinicflow is an operations platform for clinics. We handle limited data only to support scheduling, communication, and automation workflows.',
+        'AXIS is an operations platform for clinics. We handle limited data only to support scheduling, communication, and automation workflows.',
         'This privacy policy explains how we process information, what safeguards we apply, and how clinics maintain control over their data.'
       ]
     },
     {
       title: 'Information we process',
       content: [
-        'Clinicflow processes clinic provided information to deliver operational automation services. This includes:',
+        'AXIS processes clinic provided information to deliver operational automation services. This includes:',
       ],
       list: [
         'Clinic configuration details such as operating hours, staff schedules, and workflow rules',
@@ -27,7 +27,7 @@ export function PrivacyPolicy() {
     {
       title: 'How data is used',
       content: [
-        'Data processed by Clinicflow is used only to:',
+        'Data processed by AXIS is used only to:',
       ],
       list: [
         'Deliver clinic initiated communications to patients',
@@ -35,19 +35,19 @@ export function PrivacyPolicy() {
         'Maintain system reliability, performance, and security',
         'Provide support and troubleshooting when requested by the clinic'
       ],
-      footer: 'Clinicflow does not sell, rent, or monetize personal data. Data is not shared with third parties for purposes unrelated to service delivery.'
+      footer: 'AXIS does not sell, rent, or monetize personal data. Data is not shared with third parties for purposes unrelated to service delivery.'
     },
     {
       title: 'Patient communications',
       content: [
-        'All patient communications sent through Clinicflow are initiated on behalf of the clinic. Clinics are responsible for obtaining appropriate patient consent before using automated communication services.',
-        'Clinicflow acts as a service provider executing instructions configured by the clinic. The clinic maintains responsibility for compliance with applicable healthcare communication regulations.'
+        'All patient communications sent through AXIS are initiated on behalf of the clinic. Clinics are responsible for obtaining appropriate patient consent before using automated communication services.',
+        'AXIS acts as a service provider executing instructions configured by the clinic. The clinic maintains responsibility for compliance with applicable healthcare communication regulations.'
       ]
     },
     {
       title: 'Data protection',
       content: [
-        'Clinicflow applies administrative, technical, and operational safeguards designed to protect sensitive healthcare related information from unauthorized access, disclosure, or misuse.',
+        'AXIS applies administrative, technical, and operational safeguards designed to protect sensitive healthcare related information from unauthorized access, disclosure, or misuse.',
         'These safeguards include access controls, encryption during transmission and storage, regular security assessments, and staff training on data handling procedures.',
         'While we implement protections consistent with industry standards for healthcare data, no system is completely immune to risk. Clinics should assess whether our safeguards meet their operational and regulatory requirements.'
       ]
@@ -55,7 +55,7 @@ export function PrivacyPolicy() {
     {
       title: 'Clinic control',
       content: [
-        'Clinics retain ownership and control of their data. Data access within Clinicflow follows clinic configured permissions.',
+        'Clinics retain ownership and control of their data. Data access within AXIS follows clinic configured permissions.',
         'Clinics can export their data at any time. Upon service termination, data is deleted or returned according to the clinic\'s instructions, subject to legal retention requirements.'
       ]
     },
@@ -71,7 +71,7 @@ export function PrivacyPolicy() {
       title: 'Changes to this policy',
       content: [
         'This privacy policy may be updated as the platform evolves or legal requirements change. Material updates will be communicated to active clinic accounts.',
-        'Continued use of Clinicflow after policy updates constitutes acceptance of the revised terms.'
+        'Continued use of AXIS after policy updates constitutes acceptance of the revised terms.'
       ]
     },
     {
@@ -79,7 +79,7 @@ export function PrivacyPolicy() {
       content: [
         'Questions about this privacy policy or data handling practices should be directed to:',
       ],
-      contact: 'privacy@clinicflow.com'
+      contact: 'privacy@AXIS.com'
     }
   ];
 
@@ -95,7 +95,7 @@ export function PrivacyPolicy() {
           >
             <h1 className="mb-6">Privacy Policy</h1>
             <p className="text-xl text-[var(--foreground-muted)]">
-              How Clinicflow processes and protects clinic and patient information
+              How AXIS processes and protects clinic and patient information
             </p>
             <p className="text-sm text-[var(--foreground-muted)] mt-4">
               Last updated: January 3, 2025

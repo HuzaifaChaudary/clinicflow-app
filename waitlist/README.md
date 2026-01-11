@@ -1,6 +1,6 @@
-# CLINICFLOW
+# AXIS
 
-A dark, premium, architectural marketing website for Clinicflow—a healthcare SaaS platform for clinic operations.
+A dark, premium, architectural marketing website for AXIS—a healthcare SaaS platform for clinic operations.
 
 ## Design Philosophy
 

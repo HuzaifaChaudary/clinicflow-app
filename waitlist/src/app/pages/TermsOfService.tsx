@@ -5,23 +5,23 @@ export function TermsOfService() {
 
   const sections = [
     {
-      title: 'What Clinicflow is',
+      title: 'What AXIS is',
       content: [
-        'Clinicflow provides operational automation tools for clinics. The platform supports scheduling coordination, patient communication, intake handling, and administrative workflows.',
-        'Clinicflow is designed to reduce manual work, improve scheduling reliability, and support operational clarity in clinical environments.'
+        'AXIS provides operational automation tools for clinics. The platform supports scheduling coordination, patient communication, intake handling, and administrative workflows.',
+        'AXIS is designed to reduce manual work, improve scheduling reliability, and support operational clarity in clinical environments.'
       ]
     },
     {
-      title: 'What Clinicflow is not',
+      title: 'What AXIS is not',
       content: [
-        'Clinicflow does not provide medical services, clinical decision making, or medical advice. It is not a diagnostic tool. It is not a replacement for clinical judgment.',
-        'Clinicflow does not replace electronic health record systems. It operates as a complementary layer focused on operational workflows and patient communication.'
+        'AXIS does not provide medical services, clinical decision making, or medical advice. It is not a diagnostic tool. It is not a replacement for clinical judgment.',
+        'AXIS does not replace electronic health record systems. It operates as a complementary layer focused on operational workflows and patient communication.'
       ]
     },
     {
       title: 'Clinic responsibilities',
       content: [
-        'Clinics using Clinicflow are responsible for:',
+        'Clinics using AXIS are responsible for:',
       ],
       list: [
         'Configuring workflows, automation rules, and communication templates accurately',
@@ -30,12 +30,12 @@ export function TermsOfService() {
         'Reviewing system outputs and intervening when clinical or operational judgment is required',
         'Maintaining the security of account credentials and access permissions'
       ],
-      footer: 'Clinicflow provides tools. Clinics remain responsible for how those tools are used and the outcomes they produce.'
+      footer: 'AXIS provides tools. Clinics remain responsible for how those tools are used and the outcomes they produce.'
     },
     {
       title: 'Service operation',
       content: [
-        'Clinicflow executes instructions configured by the clinic. The platform is designed for reliability, but uninterrupted service is not guaranteed.',
+        'AXIS executes instructions configured by the clinic. The platform is designed for reliability, but uninterrupted service is not guaranteed.',
         'System availability may be affected by maintenance, technical issues, or factors beyond our control. Clinics should maintain backup procedures for critical operations.',
         'We will make reasonable efforts to notify clinics of planned maintenance or significant service disruptions.'
       ]
@@ -43,36 +43,36 @@ export function TermsOfService() {
     {
       title: 'Acceptable use',
       content: [
-        'Clinicflow is intended for legitimate clinical operations. Misuse, abuse, or use outside intended clinical workflows may result in service suspension or termination.',
+        'AXIS is intended for legitimate clinical operations. Misuse, abuse, or use outside intended clinical workflows may result in service suspension or termination.',
         'Examples of unacceptable use include sending unsolicited communications, attempting to compromise system security, or using the platform in ways that violate applicable laws.'
       ]
     },
     {
       title: 'Service modifications',
       content: [
-        'Clinicflow may introduce new features, modify existing functionality, or discontinue certain capabilities as the platform evolves.',
+        'AXIS may introduce new features, modify existing functionality, or discontinue certain capabilities as the platform evolves.',
         'We will make reasonable efforts to communicate significant changes that affect core workflows. Clinics are responsible for adapting their configurations to accommodate platform updates.'
       ]
     },
     {
       title: 'Data and privacy',
       content: [
-        'Data handling, retention, and protection are described in the Clinicflow Privacy Policy.',
-        'Clinics retain ownership of their data. Clinicflow processes data as a service provider under clinic direction.'
+        'Data handling, retention, and protection are described in the AXIS Privacy Policy.',
+        'Clinics retain ownership of their data. AXIS processes data as a service provider under clinic direction.'
       ]
     },
     {
       title: 'Termination',
       content: [
-        'Clinics may stop using Clinicflow at any time. Upon termination, data will be handled according to clinic instructions and the Privacy Policy.',
-        'Clinicflow may suspend or terminate service if a clinic violates these terms, poses a security risk, or engages in conduct harmful to the platform or other users.'
+        'Clinics may stop using AXIS at any time. Upon termination, data will be handled according to clinic instructions and the Privacy Policy.',
+        'AXIS may suspend or terminate service if a clinic violates these terms, poses a security risk, or engages in conduct harmful to the platform or other users.'
       ]
     },
     {
       title: 'Limitation of liability',
       content: [
-        'Clinicflow is provided as a tool to support clinic operations. While we design for reliability and accuracy, the platform does not guarantee specific outcomes.',
-        'Clinics assume responsibility for clinical and operational decisions. Clinicflow is not liable for missed appointments, communication failures, or operational disruptions beyond the direct cost of service fees.',
+        'AXIS is provided as a tool to support clinic operations. While we design for reliability and accuracy, the platform does not guarantee specific outcomes.',
+        'Clinics assume responsibility for clinical and operational decisions. AXIS is not liable for missed appointments, communication failures, or operational disruptions beyond the direct cost of service fees.',
         'This limitation applies to the fullest extent permitted by law.'
       ]
     },
@@ -80,7 +80,7 @@ export function TermsOfService() {
       title: 'Updates to these terms',
       content: [
         'These terms may be updated as the platform evolves or legal requirements change. Material updates will be communicated to active clinic accounts.',
-        'Continued use of Clinicflow after terms are updated constitutes acceptance of the revised terms.'
+        'Continued use of AXIS after terms are updated constitutes acceptance of the revised terms.'
       ]
     },
     {
@@ -88,7 +88,7 @@ export function TermsOfService() {
       content: [
         'Questions about these terms or service operation should be directed to:',
       ],
-      contact: 'support@clinicflow.com'
+      contact: 'support@AXIS.com'
     }
   ];
 
@@ -104,7 +104,7 @@ export function TermsOfService() {
           >
             <h1 className="mb-6">Terms of Service</h1>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Usage terms for Clinicflow operational automation platform
+              Usage terms for AXIS operational automation platform
             </p>
             <p className="text-sm text-[var(--foreground-muted)] mt-4">
               Last updated: January 3, 2025

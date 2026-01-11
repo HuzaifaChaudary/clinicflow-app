@@ -146,14 +146,13 @@ export function Trial() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: flowEasing }}
           >
-            <div className="mb-8 text-6xl">✓</div>
-            <h1 className="mb-6">You're on the waitlist</h1>
+            <div className="mb-8 text-6xl">🎉</div>
+            <h1 className="mb-6">Thanks for joining the waitlist!</h1>
             <p className="text-xl text-[var(--foreground-muted)] mb-4">
-              Thanks for sharing your details.<br />
-              We'll reach out when your clinic is ready for onboarding.
+              We'll reach out to you soon at <span className="text-[var(--accent-mint)] font-medium">{formData.email}</span> with product updates and early access details.
             </p>
             <p className="text-sm text-[var(--foreground-muted)] mt-8">
-              Early access is prioritized based on clinic size and operational needs.
+              You're now in line for 3 months free access when we launch!
             </p>
             <div className="mt-12">
               <Link to="/">
@@ -182,10 +181,10 @@ export function Trial() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: flowEasing }}
         >
-          <h1 className="mb-6">Join the Clinicflow waitlist</h1>
+          <h1 className="mb-6">Join the AXIS waitlist</h1>
           <p className="text-xl text-[var(--foreground-muted)]">
             We're onboarding clinics in small, intentional batches.<br />
-            Tell us a bit about your clinic so we can see if Clinicflow is a good fit.
+            Tell us a bit about your clinic so we can see if AXIS is a good fit.
           </p>
         </motion.div>
 
@@ -375,7 +374,7 @@ export function Trial() {
           {/* Section 6: Willingness to Pay */}
           <div>
             <label className="block mb-3 text-lg">
-              If Clinicflow solved these problems reliably, would you be open to paying for it? <span className="text-[var(--accent-mint)]">*</span>
+              If AXIS solved these problems reliably, would you be open to paying for it? <span className="text-[var(--accent-mint)]">*</span>
             </label>
             <p className="text-sm text-[var(--foreground-muted)] mb-8">
               Honest answers help us build the right product.
@@ -411,7 +410,7 @@ export function Trial() {
                 transition={{ duration: 0.3, ease: flowEasing }}
               >
                 <label className="block mb-3 text-lg">
-                  What monthly price range would feel reasonable for your clinic?
+                  What monthly price range would feel reasonable for your clinic? <span className="text-[var(--foreground-muted)] text-sm font-normal">(Optional)</span>
                 </label>
                 <select
                   value={formData.priceRange}
@@ -429,10 +428,10 @@ export function Trial() {
             )}
           </div>
 
-          {/* Section 7: Solution Expectations */}
+          {/* Section 7: Solution Expectations (Optional) */}
           <div>
             <label className="block mb-3 text-lg">
-              What would make a solution like this a clear win for you?
+              What would make a solution like this a clear win for you? <span className="text-[var(--foreground-muted)] text-sm font-normal">(Optional)</span>
             </label>
             <p className="text-sm text-[var(--foreground-muted)] mb-8">
               One or two things is enough.

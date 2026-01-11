@@ -108,7 +108,7 @@ export function Dental() {
                       e.currentTarget.style.color = '#2563EB';
                     }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
               </div>
@@ -250,7 +250,7 @@ export function Dental() {
         </div>
       </section>
 
-      {/* HOW CLINICFLOW FITS DENTAL WORKFLOWS */}
+      {/* HOW AXIS FITS DENTAL WORKFLOWS */}
       <section className="relative py-32 border-t border-[var(--glass-border)]">
         <div className="max-w-[1400px] mx-auto px-8">
           <motion.div
@@ -262,7 +262,7 @@ export function Dental() {
           >
             <h2 className="mb-8">Designed for high volume visits</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Dental clinics depend on predictable schedules. Clinicflow confirms visits, sends reminders, and follows up so chairs stay filled without staff chasing patients.
+              Dental clinics depend on predictable schedules. AXIS confirms visits, sends reminders, and follows up so chairs stay filled without staff chasing patients.
             </p>
           </motion.div>
 
@@ -501,7 +501,7 @@ export function Dental() {
           >
             <h2 className="mb-8">Treatment plans do not disappear after visit one</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Follow up visits and procedures stay visible to patients. Clinicflow prompts next steps so treatment plans move forward naturally.
+              Follow up visits and procedures stay visible to patients. AXIS prompts next steps so treatment plans move forward naturally.
             </p>
           </motion.div>
 
@@ -635,7 +635,7 @@ export function Dental() {
           >
             <h2 className="mb-8">Front desk workload drops quietly</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Admins configure rules once. Clinicflow runs confirmations, reminders, and follow ups automatically. Staff step in only when needed.
+              Admins configure rules once. AXIS runs confirmations, reminders, and follow ups automatically. Staff step in only when needed.
             </p>
           </motion.div>
 
@@ -818,7 +818,7 @@ export function Dental() {
             >
               <h2 className="mb-8">Designed around dental reality</h2>
               <p className="text-xl text-[var(--foreground-muted)]">
-                Clinicflow supports fast paced schedules, repeat visits, and patient follow through without disrupting how clinics already work.
+                AXIS supports fast paced schedules, repeat visits, and patient follow through without disrupting how clinics already work.
               </p>
             </motion.div>
 
@@ -865,7 +865,7 @@ export function Dental() {
             >
               <h2 className="mb-6">Protect your chair time</h2>
               <p className="text-xl text-[var(--foreground-muted)] mb-12">
-                See how Clinicflow supports dental clinics with real workflows.
+                See how AXIS supports dental clinics with real workflows.
               </p>
 
               <div className="max-w-[600px] mx-auto">
@@ -911,7 +911,7 @@ export function Dental() {
                         e.currentTarget.style.color = '#2563EB';
                       }}
                     >
-                      Join Waitlist for 3 Months Free Access
+                      Join Waitlist
                     </motion.button>
                   </Link>
                 </div>

@@ -1,4 +1,4 @@
-# Clinicflow Visual System Audit
+# AXIS Visual System Audit
 ## Reference Implementation: `/demo/infinite-grid`
 
 This document audits the transformed demo page against the complete Visual System Checklist.
@@ -289,6 +289,6 @@ Return to this audit. Find the violated principle. Apply the rule.
 
 **Document Version:** 1.0  
 **Date:** January 2026  
-**Auditor:** Clinicflow Design System  
+**Auditor:** AXIS Design System  
 **Page:** `/demo/infinite-grid`  
 **Status:** ✅ Production-Ready, Investor-Safe, Regression-Proof

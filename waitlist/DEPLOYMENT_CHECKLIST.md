@@ -1,4 +1,4 @@
-# Clinicflow Website - Deployment Ready ✅
+# AXIS Website - Deployment Ready ✅
 
 ## ✅ Completed Items
 
@@ -9,7 +9,7 @@
 - [x] Smooth 0.8s animations with cubic-bezier easing
 
 ### 2. Navigation Updates
-- [x] Updated header structure: CLINICFLOW wordmark left
+- [x] Updated header structure: AXIS wordmark left
 - [x] Center navigation: Product, How it works, Solutions, Voice, Pricing, About
 - [x] Right side: Log in, Sign up, Access Free Trial CTA
 - [x] CTA button styled with soft glow and hover effects

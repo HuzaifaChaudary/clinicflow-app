@@ -1,39 +1,27 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
 
 from app.config import settings
 from app.schemas import WaitlistSubmission, WaitlistResponse
-from app.services.google_sheets import get_google_sheets_service
+from app.services import get_google_sheets_service
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup: Initialize Google Sheets connection
-    try:
-        get_google_sheets_service()
-        print("Google Sheets service initialized")
-    except Exception as e:
-        print(f"Warning: Could not initialize Google Sheets: {e}")
-    yield
-    # Shutdown
-    print("Shutting down...")
-
-
+# Create FastAPI app (lifespan disabled for serverless via Mangum)
 app = FastAPI(
     title="Clinicflow Waitlist API",
     description="API for managing Clinicflow waitlist submissions",
-    version="1.0.0",
-    lifespan=lifespan
+    version="1.0.0"
 )
 
-# CORS middleware
+# CORS middleware - allows all Vercel deployments and custom domains
+# Using allow_origin_regex to match all Vercel deployments dynamically
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|useaxis\.app|www\.useaxis\.app)(/.*)?",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 
@@ -54,7 +42,18 @@ async def submit_waitlist(submission: WaitlistSubmission):
     Saves the submission to Google Sheets with timestamp.
     """
     try:
+        # Initialize service on each request for serverless compatibility
         sheets_service = get_google_sheets_service()
+        
+        # Check if Google Sheets is configured
+        if sheets_service.client is None or sheets_service.spreadsheet is None:
+            # Return success but log that Google Sheets is not configured
+            print(f"Warning: Waitlist submission received but Google Sheets not configured. Submission: {submission.email}")
+            return WaitlistResponse(
+                success=True,
+                message="Successfully received submission (Google Sheets not configured)"
+            )
+        
         await sheets_service.add_waitlist_submission(submission)
         
         return WaitlistResponse(
@@ -63,6 +62,8 @@ async def submit_waitlist(submission: WaitlistSubmission):
         )
     except Exception as e:
         print(f"Error processing waitlist submission: {e}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=500,
             detail=f"Failed to process submission: {str(e)}"

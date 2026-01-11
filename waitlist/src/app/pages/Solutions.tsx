@@ -86,7 +86,7 @@ export function Solutions() {
     },
     'outpatient': {
       headline: 'Built for clinics that never stop moving',
-      subtext: 'Clinicflow keeps outpatient schedules flowing. Confirmations, reminders, and intake happen automatically so staff can focus on patients, not logistics.',
+      subtext: 'AXIS keeps outpatient schedules flowing. Confirmations, reminders, and intake happen automatically so staff can focus on patients, not logistics.',
       primaryCTA: 'See how it works for outpatient clinics',
       icon: Activity,
       accentColor: '#2563EB',
@@ -121,7 +121,7 @@ export function Solutions() {
             >
               <h1 className="mb-8">Solutions for every clinic type</h1>
               <p className="text-2xl text-[var(--foreground-muted)]">
-                Choose your clinic type to see how Clinicflow fits your workflow
+                Choose your clinic type to see how AXIS fits your workflow
               </p>
             </motion.div>
           </div>
@@ -193,7 +193,7 @@ export function Solutions() {
                         e.currentTarget.style.color = content.accentColor;
                       }}
                     >
-                      Join Waitlist for 3 Months Free Access
+                      Join Waitlist
                     </motion.button>
                   </Link>
                 </div>
@@ -249,11 +249,11 @@ export function Solutions() {
           </div>
         </section>
 
-        {/* HOW CLINICFLOW HELPS */}
+        {/* HOW AXIS HELPS */}
         <section className="relative py-32 border-t border-[var(--glass-border)]">
           <div className="max-w-[1400px] mx-auto px-8">
             <AnimatedText clinicType={selectedClinic} as="h2">
-              <h2 className="mb-16">How Clinicflow helps</h2>
+              <h2 className="mb-16">How AXIS helps</h2>
             </AnimatedText>
 
             <div className="max-w-4xl mx-auto">

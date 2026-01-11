@@ -57,7 +57,7 @@ export function Navigation() {
               whileHover={{ scale: 1.02 }}
               transition={{ duration: 0.3 }}
             >
-              CLINICFLOW
+              AXIS
             </motion.div>
             <div className="absolute -bottom-1 left-0 h-px w-0 bg-[var(--accent-primary)] transition-all duration-300 group-hover:w-full"></div>
           </Link>
@@ -146,7 +146,7 @@ export function Navigation() {
                 whileTap={{ scale: 0.98 }}
                 transition={{ duration: 0.2 }}
               >
-                Join Waitlist for 3 Months Free Access
+                Join Waitlist
               </motion.button>
             </Link>
           </div>

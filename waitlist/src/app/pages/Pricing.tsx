@@ -62,7 +62,7 @@ export function Pricing() {
         'Volume pricing',
         'Dedicated onboarding'
       ],
-      cta: 'Join Waitlist for 3 Months Free Access',
+      cta: 'Join Waitlist',
       link: '/trial'
     }
   ];
@@ -84,7 +84,7 @@ export function Pricing() {
   const faqs = [
     {
       question: 'Is there a contract?',
-      answer: 'No. Clinicflow operates on month to month billing. Cancel anytime with no penalty.'
+      answer: 'No. AXIS operates on month to month billing. Cancel anytime with no penalty.'
     },
     {
       question: 'Can we start with SMS only?',
@@ -92,7 +92,7 @@ export function Pricing() {
     },
     {
       question: 'Does this replace our EHR?',
-      answer: 'No. Clinicflow works alongside your existing EHR. It handles operational tasks like scheduling and communication, not clinical records.'
+      answer: 'No. AXIS works alongside your existing EHR. It handles operational tasks like scheduling and communication, not clinical records.'
     },
     {
       question: 'How long does setup take?',
@@ -139,7 +139,7 @@ export function Pricing() {
                       e.currentTarget.style.backgroundColor = '#2563EB';
                     }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
 
@@ -222,7 +222,7 @@ export function Pricing() {
                 Pricing is based on message volume and automation usage, not staff seats.
               </p>
               <p className="text-lg text-[var(--foreground-muted)]">
-                Clinicflow grows with your clinic without penalizing usage.
+                AXIS grows with your clinic without penalizing usage.
               </p>
             </motion.div>
 
@@ -534,7 +534,7 @@ export function Pricing() {
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.8, ease: flowEasing }}
             >
-              <h2 className="mb-6">See Clinicflow in action</h2>
+              <h2 className="mb-6">See AXIS in action</h2>
               <p className="text-xl text-[var(--foreground-muted)] mb-12">
                 A short walkthrough of real clinic workflows.<br />
                 No pressure. No sales scripts.
@@ -561,7 +561,7 @@ export function Pricing() {
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
               </div>

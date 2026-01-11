@@ -17,6 +17,23 @@ class Settings:
         "http://localhost:5174",
         "http://localhost:3000",
         "http://127.0.0.1:5173",
+        "https://useaxis.app",
+        "https://www.useaxis.app",
+        "https://axis-ebon.vercel.app",
+        "https://axis-95499sypc-huzaifachaudarys-projects.vercel.app",
     ]
+    
+    @staticmethod
+    def is_allowed_origin(origin: str) -> bool:
+        """Check if origin is allowed (supports Vercel wildcard pattern)"""
+        allowed_patterns = [
+            "http://localhost",
+            "http://127.0.0.1",
+            "https://useaxis.app",
+            "https://www.useaxis.app",
+            "https://axis-",
+            ".vercel.app",
+        ]
+        return any(pattern in origin for pattern in allowed_patterns)
 
 settings = Settings()

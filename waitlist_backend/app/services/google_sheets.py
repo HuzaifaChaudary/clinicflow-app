@@ -16,6 +16,13 @@ class GoogleSheetsService:
     
     def _initialize(self):
         """Initialize Google Sheets client"""
+        # Check if required credentials are available
+        if not settings.GOOGLE_SHEETS_SPREADSHEET_ID:
+            print("Warning: GOOGLE_SHEETS_SPREADSHEET_ID not set. Google Sheets functionality disabled.")
+            self.client = None
+            self.spreadsheet = None
+            return
+        
         scopes = [
             'https://www.googleapis.com/auth/spreadsheets',
             'https://www.googleapis.com/auth/drive'
@@ -28,7 +35,7 @@ class GoogleSheetsService:
                     settings.GOOGLE_SERVICE_ACCOUNT_FILE,
                     scopes=scopes
                 )
-            else:
+            elif settings.GOOGLE_PRIVATE_KEY and settings.GOOGLE_SERVICE_ACCOUNT_EMAIL:
                 # Use environment variables
                 service_account_info = {
                     "type": "service_account",
@@ -41,13 +48,19 @@ class GoogleSheetsService:
                     service_account_info,
                     scopes=scopes
                 )
+            else:
+                print("Warning: Google Sheets credentials not configured. Google Sheets functionality disabled.")
+                self.client = None
+                self.spreadsheet = None
+                return
             
             self.client = gspread.authorize(credentials)
             self.spreadsheet = self.client.open_by_key(settings.GOOGLE_SHEETS_SPREADSHEET_ID)
             print("Google Sheets connected successfully")
         except Exception as e:
-            print(f"Failed to initialize Google Sheets: {e}")
-            raise
+            print(f"Warning: Failed to initialize Google Sheets: {e}. Google Sheets functionality disabled.")
+            self.client = None
+            self.spreadsheet = None
     
     def _ensure_headers(self, worksheet):
         """Ensure the worksheet has the correct headers"""
@@ -166,6 +179,9 @@ class GoogleSheetsService:
     
     async def add_waitlist_submission(self, submission: WaitlistSubmission) -> bool:
         """Add a new waitlist submission to Google Sheets"""
+        if not self.client or not self.spreadsheet:
+            raise Exception("Google Sheets is not configured. Please set up Google Sheets credentials.")
+        
         try:
             # Get or create the waitlist worksheet
             try:

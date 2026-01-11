@@ -2,7 +2,7 @@
 
 **Design once. Reuse everywhere.**
 
-This is the visual sentence structure for all Clinicflow process flows.
+This is the visual sentence structure for all AXIS process flows.
 
 ---
 
@@ -96,7 +96,7 @@ That's it. Everything else is styling.
 
 ### **C. Action Card (the system step)**
 
-**Represents:** Where Clinicflow does something
+**Represents:** Where AXIS does something
 
 **Design:**
 - Shape: Rounded rectangle
@@ -470,7 +470,7 @@ Visit `/flow-blueprint` to see all three layouts in action:
 **If a section does not show cause → action → outcome visually, it is not finished.**
 
 This blueprint is not a suggestion.  
-It is the design system for all Clinicflow process explanations.
+It is the design system for all AXIS process explanations.
 
 Use it consistently.  
 Don't invent new patterns.  

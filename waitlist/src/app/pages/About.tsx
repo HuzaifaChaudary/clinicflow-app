@@ -78,7 +78,7 @@ export function About() {
             >
               <h1 className="mb-8">Built for how clinics actually work</h1>
               <p className="text-2xl text-[var(--foreground-muted)]">
-                Clinicflow exists to remove operational friction, not to replace your systems or add complexity.
+                AXIS exists to remove operational friction, not to replace your systems or add complexity.
               </p>
             </motion.div>
 
@@ -139,7 +139,7 @@ export function About() {
               <h2 className="mb-8">How we design</h2>
               <div className="text-xl text-[var(--foreground-muted)] space-y-6">
                 <p>
-                  Clinicflow is built to reduce daily decision making. You set rules once. The system follows them automatically. Routine work runs quietly in the background.
+                  AXIS is built to reduce daily decision making. You set rules once. The system follows them automatically. Routine work runs quietly in the background.
                 </p>
                 <p>
                   The interface shows you what is happening without demanding your attention. System states are clear. Actions are predictable. Interruptions only occur when something genuinely needs a human decision.
@@ -153,7 +153,7 @@ export function About() {
         </div>
       </section>
 
-      {/* HOW CLINICS WORK WITH CLINICFLOW */}
+      {/* HOW CLINICS WORK WITH AXIS */}
       <section className="relative py-32 border-t border-[var(--glass-border)] bg-[var(--background-secondary)]">
         <div className="max-w-[1400px] mx-auto px-8">
           <motion.div
@@ -163,7 +163,7 @@ export function About() {
             viewport={{ once: true, margin: "-100px" }}
             transition={{ duration: 0.8, ease: flowEasing }}
           >
-            <h2 className="mb-8">How clinics work with Clinicflow</h2>
+            <h2 className="mb-8">How clinics work with AXIS</h2>
           </motion.div>
 
           {/* Horizontal flow visualization */}
@@ -319,7 +319,7 @@ export function About() {
                         e.currentTarget.style.color = '#2563EB';
                       }}
                     >
-                      Join Waitlist for 3 Months Free Access
+                      Join Waitlist
                     </motion.button>
                   </Link>
                 </div>

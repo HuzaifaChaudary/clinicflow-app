@@ -62,7 +62,7 @@ export function Outpatient() {
             >
               <h1 className="mb-8">Built for clinics that never stop moving</h1>
               <p className="text-2xl text-[var(--foreground-muted)] mb-12">
-                Clinicflow keeps outpatient schedules flowing. Confirmations, reminders, and intake happen automatically so staff can focus on patients, not logistics.
+                AXIS keeps outpatient schedules flowing. Confirmations, reminders, and intake happen automatically so staff can focus on patients, not logistics.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4">
@@ -107,7 +107,7 @@ export function Outpatient() {
                       e.currentTarget.style.color = '#2563EB';
                     }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
               </div>
@@ -271,7 +271,7 @@ export function Outpatient() {
           >
             <h2 className="mb-8">Flow over perfection</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Outpatient clinics succeed when patient movement stays predictable. Clinicflow stabilizes schedules by confirming visits, preparing patients, and reducing last minute uncertainty.
+              Outpatient clinics succeed when patient movement stays predictable. AXIS stabilizes schedules by confirming visits, preparing patients, and reducing last minute uncertainty.
             </p>
           </motion.div>
 
@@ -356,7 +356,7 @@ export function Outpatient() {
           >
             <h2 className="mb-8">Confirm hundreds of visits without calling hundreds of patients</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Clinicflow confirms appointments automatically across SMS and voice. Patients respond quickly. Staff does not chase responses.
+              AXIS confirms appointments automatically across SMS and voice. Patients respond quickly. Staff does not chase responses.
             </p>
           </motion.div>
 
@@ -436,7 +436,7 @@ export function Outpatient() {
           >
             <h2 className="mb-8">Not every visit needs the same reminder</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Short consults, procedures, and follow ups each follow different reminder logic. Clinicflow adapts automatically.
+              Short consults, procedures, and follow ups each follow different reminder logic. AXIS adapts automatically.
             </p>
           </motion.div>
 
@@ -603,7 +603,7 @@ export function Outpatient() {
           >
             <h2 className="mb-8">Unexpected visits without chaos</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Clinicflow absorbs walk ins by maintaining clarity around confirmed, pending, and flexible slots.
+              AXIS absorbs walk ins by maintaining clarity around confirmed, pending, and flexible slots.
             </p>
           </motion.div>
 
@@ -670,7 +670,7 @@ export function Outpatient() {
           >
             <h2 className="mb-8">Operations run quietly in the background</h2>
             <p className="text-xl text-[var(--foreground-muted)]">
-              Admins set rules once. Clinicflow enforces confirmations, reminders, and follow ups automatically. Staff intervene only when exceptions occur.
+              Admins set rules once. AXIS enforces confirmations, reminders, and follow ups automatically. Staff intervene only when exceptions occur.
             </p>
           </motion.div>
 
@@ -827,7 +827,7 @@ export function Outpatient() {
             >
               <h2 className="mb-8">Supports how outpatient clinics already work</h2>
               <p className="text-xl text-[var(--foreground-muted)]">
-                Clinicflow does not replace systems. It supports the operational layer that keeps clinics running smoothly at scale.
+                AXIS does not replace systems. It supports the operational layer that keeps clinics running smoothly at scale.
               </p>
             </motion.div>
 
@@ -842,7 +842,7 @@ export function Outpatient() {
               <div className="space-y-4 p-12 rounded-2xl bg-white">
                 {[
                   { label: 'Scheduling systems', color: '#94A3B8' },
-                  { label: 'Clinicflow operational layer', color: '#2563EB', highlight: true },
+                  { label: 'AXIS operational layer', color: '#2563EB', highlight: true },
                   { label: 'Staff and patients', color: '#94A3B8' }
                 ].map((layer, i) => (
                   <motion.div
@@ -879,7 +879,7 @@ export function Outpatient() {
             >
               <h2 className="mb-6">Keep patients moving without burning out staff</h2>
               <p className="text-xl text-[var(--foreground-muted)] mb-12">
-                See how Clinicflow supports high volume outpatient clinics.
+                See how AXIS supports high volume outpatient clinics.
               </p>
 
               <div className="max-w-[600px] mx-auto">
@@ -925,7 +925,7 @@ export function Outpatient() {
                         e.currentTarget.style.color = '#2563EB';
                       }}
                     >
-                      Join Waitlist for 3 Months Free Access
+                      Join Waitlist
                     </motion.button>
                   </Link>
                 </div>

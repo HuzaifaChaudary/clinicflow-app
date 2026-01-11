@@ -1,4 +1,4 @@
-# Clinicflow Corrective Pass: Blue/Orange System + Vectors + Interactivity
+# AXIS Corrective Pass: Blue/Orange System + Vectors + Interactivity
 
 ## Transformation Complete: `/demo/infinite-grid`
 

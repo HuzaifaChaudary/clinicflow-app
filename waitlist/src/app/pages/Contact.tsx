@@ -29,7 +29,7 @@ export function Contact() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: flowEasing }}
           >
-            <h1 className="mb-8">See Clinicflow in action</h1>
+            <h1 className="mb-8">See AXIS in action</h1>
             <p className="text-2xl text-[var(--foreground-muted)]">
               A short walkthrough. Real clinic workflows. No sales pressure.
             </p>

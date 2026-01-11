@@ -134,7 +134,7 @@ export function HowItWorks() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: flowEasing }}
             >
-              <h1 className="mb-6">How Clinicflow works</h1>
+              <h1 className="mb-6">How AXIS works</h1>
               <p className="text-2xl text-[var(--foreground-muted)]">
                 Configured quickly without changing existing workflows. After that, the system runs automatically for every appointment.
               </p>
@@ -383,7 +383,7 @@ export function HowItWorks() {
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
               </div>

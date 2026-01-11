@@ -25,7 +25,7 @@ export function VoiceAutomation() {
       label: 'Call initiated',
       icon: Phone,
       conversation: {
-        system: 'This is Clinicflow calling about your appointment with Dr. Smith tomorrow at 2 PM.',
+        system: 'This is AXIS calling about your appointment with Dr. Smith tomorrow at 2 PM.',
         patient: undefined
       },
       outcome: {
@@ -112,7 +112,7 @@ export function VoiceAutomation() {
             >
               <h1 className="mb-8">Fewer no-shows, without more staff</h1>
               <p className="text-2xl mb-8">
-                Clinicflow calls patients to confirm and reschedule appointments automatically, so your front desk doesn't have to.
+                AXIS calls patients to confirm and reschedule appointments automatically, so your front desk doesn't have to.
               </p>
               <p className="text-xl text-[var(--foreground-muted)]">
                 Text reminders get ignored. Voicemails go unchecked. Phone calls from the clinic get returned. Voice confirmations work because patients take them seriously.
@@ -298,7 +298,7 @@ export function VoiceAutomation() {
                     e.currentTarget.style.transform = 'translateY(0)';
                   }}
                 >
-                  Join Waitlist for 3 Months Free Access
+                  Join Waitlist
                 </motion.button>
               </Link>
             </motion.div>

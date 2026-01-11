@@ -26,7 +26,7 @@ export function Product() {
             >
               <h1 className="mb-8">Run your clinic without constant interruptions</h1>
               <p className="text-2xl text-[var(--foreground-muted)] mb-12">
-                Clinicflow handles the operational work that pulls your team away from care. Scheduling. Patient communication. Intake. All quietly working in the background.
+                AXIS handles the operational work that pulls your team away from care. Scheduling. Patient communication. Intake. All quietly working in the background.
               </p>
               
               <div className="flex items-center gap-4">
@@ -37,7 +37,7 @@ export function Product() {
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.2 }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
               </div>
@@ -58,7 +58,7 @@ export function Product() {
             >
               <h2 className="mb-6">How the day actually runs</h2>
               <p className="text-xl text-[var(--foreground-muted)] max-w-3xl">
-                Every clinic day follows the same pattern. Appointments. Patients. Paperwork. Follow ups. Clinicflow supports each step without getting in the way.
+                Every clinic day follows the same pattern. Appointments. Patients. Paperwork. Follow ups. AXIS supports each step without getting in the way.
               </p>
             </motion.div>
           </div>
@@ -156,7 +156,7 @@ export function Product() {
                 >
                   <div className="text-sm mb-4 text-[var(--accent-mint)]">Example confirmation call</div>
                   <p className="text-lg italic text-[var(--foreground-muted)] mb-8">
-                    "Hi, this is Clinicflow calling to confirm your appointment with Dr. Smith tomorrow at 2 PM. Press 1 to confirm, or press 2 to reschedule."
+                    "Hi, this is AXIS calling to confirm your appointment with Dr. Smith tomorrow at 2 PM. Press 1 to confirm, or press 2 to reschedule."
                   </p>
                   <div className="text-sm text-[var(--foreground-muted)]">
                     Clear. Professional. Patients respond.
@@ -347,7 +347,7 @@ export function Product() {
             >
               <h2 className="mb-8">Not another marketplace. Not another EHR.</h2>
               <p className="text-xl text-[var(--foreground-muted)] mb-16">
-                Clinicflow does not replace your systems. It supports how your clinic already works.
+                AXIS does not replace your systems. It supports how your clinic already works.
               </p>
 
               {/* Visual Comparison Strip */}
@@ -395,7 +395,7 @@ export function Product() {
                   </div>
                 </motion.div>
 
-                {/* Clinicflow */}
+                {/* AXIS */}
                 <motion.div
                   className="p-8 rounded-2xl text-center transition-all duration-200 cursor-default"
                   style={{ backgroundColor: '#F5F9FF' }}
@@ -419,7 +419,7 @@ export function Product() {
                       <path d="M12 8H12.01" stroke="#2563EB" strokeWidth="2" strokeLinecap="round"/>
                     </svg>
                   </div>
-                  <div className="mb-2" style={{ color: '#2563EB' }}>Clinicflow</div>
+                  <div className="mb-2" style={{ color: '#2563EB' }}>AXIS</div>
                   <div className="text-sm" style={{ color: '#64748B' }}>
                     Operational layer. Works alongside what you already use.
                   </div>
@@ -440,7 +440,7 @@ export function Product() {
               viewport={{ once: true, margin: "-100px" }}
               transition={{ duration: 0.8, ease: flowEasing }}
             >
-              <h2 className="mb-6">See Clinicflow in action</h2>
+              <h2 className="mb-6">See AXIS in action</h2>
               <p className="text-xl text-[var(--foreground-muted)] mb-12">
                 A short walkthrough. Real clinic workflows.
               </p>
@@ -470,7 +470,7 @@ export function Product() {
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    Join Waitlist for 3 Months Free Access
+                    Join Waitlist
                   </motion.button>
                 </Link>
 

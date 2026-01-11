@@ -52,7 +52,7 @@ function App() {
           <div className="max-w-[1400px] mx-auto px-8 py-20">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
               <div>
-                <div className="text-2xl mb-6">CLINICFLOW</div>
+                <div className="text-2xl mb-6">AXIS</div>
                 <p className="text-[var(--foreground-muted)]">
                   Healthcare operations engineered for clarity
                 </p>
@@ -114,7 +114,7 @@ function App() {
                   </li>
                   <li>
                     <a href="/trial" className="hover:text-[var(--accent-primary)] transition-colors">
-                      Join Waitlist for 3 Months Free Access
+                      Join Waitlist
                     </a>
                   </li>
                 </ul>
@@ -123,7 +123,7 @@ function App() {
 
             <div className="mt-16 pt-8 border-t border-[var(--glass-border)] flex flex-col md:flex-row justify-between items-center gap-4">
               <p className="text-[var(--foreground-muted)] text-sm">
-                © 2025 Clinicflow. All rights reserved.
+                © 2025 AXIS. All rights reserved.
               </p>
               <div className="flex gap-8 text-sm text-[var(--foreground-muted)]">
                 <a href="/privacy-policy" className="hover:text-[var(--accent-primary)] transition-colors">
