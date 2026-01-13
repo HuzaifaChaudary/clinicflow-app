@@ -107,6 +107,14 @@ export function Trial() {
     setIsSubmitting(true);
     setSubmitError(null);
     
+    // Validate email format
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!formData.email || !emailRegex.test(formData.email)) {
+      setSubmitError('Please enter a valid email address (e.g., name@company.com)');
+      setIsSubmitting(false);
+      return;
+    }
+    
     // Validate price range (always required now)
     if (!formData.priceRange) {
       setSubmitError('Please select a price range.');
