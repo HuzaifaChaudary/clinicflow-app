@@ -107,6 +107,20 @@ export function Trial() {
     setIsSubmitting(true);
     setSubmitError(null);
     
+    // Validate price range (always required now)
+    if (!formData.priceRange) {
+      setSubmitError('Please select a price range.');
+      setIsSubmitting(false);
+      return;
+    }
+    
+    // Validate solution wins (at least one must be selected)
+    if (formData.solutionWins.length === 0) {
+      setSubmitError('Please select at least one solution win.');
+      setIsSubmitting(false);
+      return;
+    }
+    
     try {
       const response = await fetch('http://localhost:8001/api/waitlist', {
         method: 'POST',
@@ -134,7 +148,6 @@ export function Trial() {
     }
   };
 
-  const showPriceRange = formData.willingnessToPay === 'yes' || formData.willingnessToPay === 'possibly';
 
   if (submitted) {
     return (
@@ -401,37 +414,30 @@ export function Trial() {
               ))}
             </div>
 
-            {/* Price Range (Conditional) */}
-            {showPriceRange && (
-              <motion.div
-                className="mt-8"
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                transition={{ duration: 0.3, ease: flowEasing }}
+            {/* Price Range */}
+            <div className="mt-8">
+              <label className="block mb-3 text-lg">
+                What monthly price range would feel reasonable for your clinic? <span className="text-[var(--accent-mint)]">*</span>
+              </label>
+              <select
+                value={formData.priceRange}
+                onChange={(e) => setFormData({ ...formData, priceRange: e.target.value })}
+                className="w-full px-6 py-5 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl focus:border-[var(--accent-mint)] focus:shadow-[0_0_20px_rgba(94,234,212,0.2)] outline-none transition-all duration-300 backdrop-blur-xl text-lg"
+                required
               >
-                <label className="block mb-3 text-lg">
-                  What monthly price range would feel reasonable for your clinic? <span className="text-[var(--foreground-muted)] text-sm font-normal">(Optional)</span>
-                </label>
-                <select
-                  value={formData.priceRange}
-                  onChange={(e) => setFormData({ ...formData, priceRange: e.target.value })}
-                  className="w-full px-6 py-5 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl focus:border-[var(--accent-mint)] focus:shadow-[0_0_20px_rgba(94,234,212,0.2)] outline-none transition-all duration-300 backdrop-blur-xl text-lg"
-                >
-                  <option value="">Select a range</option>
-                  <option value="under-100">Under $100 / month</option>
-                  <option value="100-250">$100 to $250 / month</option>
-                  <option value="250-500">$250 to $500 / month</option>
-                  <option value="500-plus">$500+ / month</option>
-                  <option value="not-sure">Not sure yet</option>
-                </select>
-              </motion.div>
-            )}
+                <option value="">Select a range *</option>
+                <option value="under-100">Under $100 / month</option>
+                <option value="100-250">$100 to $250 / month</option>
+                <option value="250-500">$250 to $500 / month</option>
+                <option value="500-plus">$500+ / month</option>
+              </select>
+            </div>
           </div>
 
-          {/* Section 7: Solution Expectations (Optional) */}
+          {/* Section 7: Solution Expectations */}
           <div>
             <label className="block mb-3 text-lg">
-              What would make a solution like this a clear win for you? <span className="text-[var(--foreground-muted)] text-sm font-normal">(Optional)</span>
+              What would make a solution like this a clear win for you? <span className="text-[var(--accent-mint)]">*</span>
             </label>
             <p className="text-sm text-[var(--foreground-muted)] mb-8">
               One or two things is enough.
@@ -532,7 +538,7 @@ export function Trial() {
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   className="w-full px-6 py-5 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl focus:border-[var(--accent-mint)] focus:shadow-[0_0_20px_rgba(94,234,212,0.2)] outline-none transition-all duration-300 backdrop-blur-xl text-lg"
-                  placeholder="Phone number (optional)"
+                  placeholder="Phone number without spaces (optional)"
                 />
               </div>
             </div>

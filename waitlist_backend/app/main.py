@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from app.config import settings
 from app.schemas import WaitlistSubmission, WaitlistResponse
@@ -13,16 +14,32 @@ app = FastAPI(
 )
 
 # CORS middleware - allows all Vercel deployments and custom domains
-# Using allow_origin_regex to match all Vercel deployments dynamically
-app.add_middleware(
-    CORSMiddleware,
-    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|useaxis\.app|www\.useaxis\.app)(/.*)?",
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE", "HEAD"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-    max_age=3600,
-)
+# For local development, use permissive regex; for production use specific regex
+is_production = os.getenv("ENVIRONMENT") == "production"
+
+if is_production:
+    # Production: Use regex for Vercel deployments
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?|https://.*\.vercel\.app|https://(useaxis|www\.useaxis)\.app",
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE", "HEAD"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+        max_age=3600,
+    )
+else:
+    # Development: Use permissive regex to allow any localhost origin
+    # This handles any port number for local development
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?",
+        allow_credentials=True,
+        allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE", "HEAD"],
+        allow_headers=["*"],
+        expose_headers=["*"],
+        max_age=3600,
+    )
 
 
 @app.get("/")

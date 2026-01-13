@@ -90,6 +90,12 @@ class GoogleSheetsService:
                 worksheet.update('A1', [headers])
         except Exception:
             worksheet.update('A1', [headers])
+        
+        # Always format phone column (column D) as text to prevent number conversion
+        try:
+            worksheet.format('D:D', {'numberFormat': {'type': 'TEXT'}})
+        except Exception as e:
+            print(f"Warning: Could not format phone column: {e}")
     
     def _get_clinic_type_label(self, value: str) -> str:
         """Convert clinic type value to readable label"""
@@ -195,11 +201,19 @@ class GoogleSheetsService:
             # Format the data
             timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
             
+            # Store phone number exactly as entered, but prefix with ' to force text format
+            # The single quote forces Google Sheets to treat it as text (won't show in cell)
+            phone_value = submission.phone or ""
+            if phone_value:
+                # Prefix with single quote to force text format (prevents number conversion)
+                # The quote is invisible in the cell display, only in formula bar
+                phone_value = f"'{phone_value}"
+            
             row_data = [
                 timestamp,
                 submission.fullName,
                 submission.email,
-                submission.phone or "",
+                phone_value,
                 self._get_role_label(submission.role),
                 submission.clinicName,
                 self._get_clinic_type_label(submission.clinicType),

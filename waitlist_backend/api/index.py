@@ -5,16 +5,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
+import os
 
 app = FastAPI()
 
-# CORS middleware
+# CORS middleware for production (Vercel)
+# Allows Vercel deployments, custom domains, and localhost for testing
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?|https://.*\.vercel\.app|https://(useaxis|www\.useaxis)\.app",
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS", "PUT", "DELETE", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
 class WaitlistSubmission(BaseModel):
@@ -97,12 +101,27 @@ async def submit_waitlist(submission: WaitlistSubmission):
         except:
             worksheet.update('A1', [headers])
         
+        # Always format phone column (column D) as text to prevent number conversion
+        try:
+            worksheet.format('D:D', {'numberFormat': {'type': 'TEXT'}})
+        except Exception as e:
+            print(f"Warning: Could not format phone column: {e}")
+        
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Store phone number exactly as entered, but prefix with ' to force text format
+        # The single quote forces Google Sheets to treat it as text (won't show in cell)
+        phone_value = submission.phone or ""
+        if phone_value:
+            # Prefix with single quote to force text format (prevents number conversion)
+            # The quote is invisible in the cell display, only in formula bar
+            phone_value = f"'{phone_value}"
+        
         row_data = [
             timestamp,
             submission.fullName,
             submission.email,
-            submission.phone or "",
+            phone_value,
             submission.role,
             submission.clinicName,
             submission.clinicType,
@@ -116,7 +135,9 @@ async def submit_waitlist(submission: WaitlistSubmission):
             submission.otherWish or ""
         ]
         
+        # Append the row - phone will be treated as text due to column formatting
         worksheet.append_row(row_data, value_input_option='USER_ENTERED')
+        
         print(f"Waitlist submission added: {submission.email}")
         
         return WaitlistResponse(success=True, message="Successfully added to waitlist")
