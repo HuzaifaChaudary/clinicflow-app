@@ -3,7 +3,8 @@
  * Handles all HTTP requests to the backend API
  */
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+// @ts-ignore - Vite env
+const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
 
 // Token management
 const TOKEN_KEY = 'clinicflow_auth_token';
@@ -31,15 +32,15 @@ async function apiRequest<T>(
 ): Promise<T> {
   const token = getToken();
   
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     'Content-Type': 'application/json',
-    ...options.headers,
   };
   
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }
   
+  // Merge with any existing headers
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
@@ -304,6 +305,105 @@ export const intake = {
     return apiRequest(`/intake/summary/${appointmentId}/regenerate`, {
       method: 'POST',
     });
+  },
+};
+
+// Owner endpoints
+export const owner = {
+  async getDashboard(params?: { date?: string; period?: 'week' | 'month' | 'quarter' }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    return apiRequest(`/owner/dashboard${query}`);
+  },
+  
+  // Voice AI
+  async getVoiceAILogs(params?: { 
+    skip?: number; 
+    limit?: number; 
+    status?: string; 
+    call_type?: string;
+    date_from?: string;
+    date_to?: string;
+  }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    return apiRequest(`/owner/voice-ai/logs${query}`);
+  },
+  
+  async getVoiceAIStats(params?: { date_from?: string; date_to?: string }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    return apiRequest(`/owner/voice-ai/stats${query}`);
+  },
+  
+  async createVoiceAILog(data: any) {
+    return apiRequest('/owner/voice-ai/logs', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  async updateVoiceAILog(id: string, data: any) {
+    return apiRequest(`/owner/voice-ai/logs/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  // Automation Rules
+  async getAutomationRules(params?: { rule_type?: string; enabled?: boolean }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    return apiRequest(`/owner/automation/rules${query}`);
+  },
+  
+  async getAutomationRule(id: string) {
+    return apiRequest(`/owner/automation/rules/${id}`);
+  },
+  
+  async createAutomationRule(data: any) {
+    return apiRequest('/owner/automation/rules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  async updateAutomationRule(id: string, data: any) {
+    return apiRequest(`/owner/automation/rules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  async deleteAutomationRule(id: string) {
+    return apiRequest(`/owner/automation/rules/${id}`, {
+      method: 'DELETE',
+    });
+  },
+  
+  async getAutomationExecutions(params?: { rule_id?: string; status?: string; skip?: number; limit?: number }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    return apiRequest(`/owner/automation/executions${query}`);
+  },
+  
+  // Settings
+  async getSettings() {
+    return apiRequest('/owner/settings');
+  },
+  
+  async updateSettings(data: any) {
+    return apiRequest('/owner/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  // Metrics
+  async getMetrics(params?: { date_from?: string; date_to?: string }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    return apiRequest(`/owner/metrics${query}`);
+  },
+  
+  // Capacity
+  async getCapacity(params?: { date?: string; doctor_id?: string }) {
+    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    return apiRequest(`/owner/capacity${query}`);
   },
 };
 

@@ -1,0 +1,888 @@
+{
+  "owner": {},
+  "admin": {
+    "GET /api/owner/dashboard": {
+      "status": 200,
+      "success": true,
+      "data": {
+        "date": "2026-01-22",
+        "hero_metrics": [
+          {
+            "id": "no-show-rate",
+            "label": "No-Show Rate",
+            "value": "0%",
+            "change": 0.0,
+            "change_label": "0.0% increase",
+            "trend": "up",
+            "good_direction": "down"
+          },
+          {
+            "id": "appointments-recovered",
+            "label": "Appointments Recovered by AI",
+            "value": "3",
+            "change": 3.0,
+            "change_label": "3 more vs last period",
+            "trend": "up",
+            "good_direction": "up"
+          },
+          {
+            "id": "admin-hours-saved",
+            "label": "Admin Hours Saved",
+            "value": "0.2 hrs",
+            "change": 18.0,
+            "change_label": "18% more efficient",
+            "trend": "up",
+            "good_direction": "up"
+          },
+          {
+            "id": "clinic-utilization",
+            "label": "Clinic Utilization",
+            "value": "0.0%",
+            "change": 12.0,
+            "change_label": "12% increase",
+            "trend": "up",
+            "good_direction": "up"
+          }
+        ],
+        "no_show_by_doctor": [
+          {
+            "doctor_id": "2a063058-c6c4-436d-932e-60c0f9a6dbaa",
+            "doctor": "Dr. Sarah Chen",
+            "rate": 0.0,
+            "appointments": 0
+          },
+          {
+            "doctor_id": "8829df65-4a12-4fb7-9696-db6a0d21f510",
+            "doctor": "Dr. Michael Park",
+            "rate": 0.0,
+            "appointments": 0
+          },
+          {
+            "doctor_id": "c640a67a-f12e-41f3-95dc-0585af3b2c1c",
+            "doctor": "Dr. Jennifer Williams",
+            "rate": 0.0,
+            "appointments": 0
+          },
+          {
+            "doctor_id": "26da2865-db1a-46b3-a832-de75ea3bd49f",
+            "doctor": "Dr. David Rodriguez",
+            "rate": 0.0,
+            "appointments": 0
+          },
+          {
+            "doctor_id": "acf75011-4fa1-4399-80d6-f695823df50b",
+            "doctor": "Dr. Emily Thompson",
+            "rate": 0.0,
+            "appointments": 0
+          }
+        ],
+        "no_show_by_visit_type": [
+          {
+            "type": "In-Clinic",
+            "rate": 0.0,
+            "appointments": 0
+          },
+          {
+            "type": "Virtual",
+            "rate": 0.0,
+            "appointments": 0
+          }
+        ],
+        "no_show_by_day_of_week": [
+          {
+            "day": "Monday",
+            "rate": 0.0
+          },
+          {
+            "day": "Tuesday",
+            "rate": 0.0
+          },
+          {
+            "day": "Wednesday",
+            "rate": 0.0
+          },
+          {
+            "day": "Thursday",
+            "rate": 0.0
+          },
+          {
+            "day": "Friday",
+            "rate": 0.0
+          },
+          {
+            "day": "Saturday",
+            "rate": 0.0
+          },
+          {
+            "day": "Sunday",
+            "rate": 0.0
+          }
+        ],
+        "follow_up_data": {
+          "scheduled": 0,
+          "completed": 0,
+          "missed": 0,
+          "completion_rate": 0.0,
+          "retention_impact": "+0.0% patient return rate vs manual scheduling"
+        },
+        "admin_efficiency": {
+          "calls_automated": 3,
+          "forms_auto_completed": 0,
+          "manual_tasks_avoided": 3,
+          "hours_per_week": 0.2,
+          "cost_savings": "$12",
+          "cost_savings_monthly": "$50"
+        },
+        "doctor_capacity": [
+          {
+            "doctor_id": "2a063058-c6c4-436d-932e-60c0f9a6dbaa",
+            "doctor": "Dr. Sarah Chen",
+            "appointments": 0,
+            "utilization": 0.0,
+            "specialty": "Family Medicine"
+          },
+          {
+            "doctor_id": "8829df65-4a12-4fb7-9696-db6a0d21f510",
+            "doctor": "Dr. Michael Park",
+            "appointments": 0,
+            "utilization": 0.0,
+            "specialty": "Internal Medicine"
+          },
+          {
+            "doctor_id": "c640a67a-f12e-41f3-95dc-0585af3b2c1c",
+            "doctor": "Dr. Jennifer Williams",
+            "appointments": 0,
+            "utilization": 0.0,
+            "specialty": "Pediatrics"
+          },
+          {
+            "doctor_id": "26da2865-db1a-46b3-a832-de75ea3bd49f",
+            "doctor": "Dr. David Rodriguez",
+            "appointments": 0,
+            "utilization": 0.0,
+            "specialty": "Cardiology"
+          },
+          {
+            "doctor_id": "acf75011-4fa1-4399-80d6-f695823df50b",
+            "doctor": "Dr. Emily Thompson",
+            "appointments": 0,
+            "utilization": 0.0,
+            "specialty": "Dermatology"
+          }
+        ],
+        "ai_performance": {
+          "total_interactions": 3,
+          "confirmations_achieved": 3,
+          "escalations_to_humans": 0,
+          "success_rate": 100.0,
+          "avg_resolution_time": "0m 45s"
+        },
+        "roi_summary": {
+          "appointments_recovered_weekly": 3,
+          "monthly_cost_savings": 50.0,
+          "message": "Clinicflow is recovering 3 appointments per week and saving $50/month in admin costs"
+        }
+      }
+    },
+    "GET /api/owner/dashboard?date&period": {
+      "status": 200,
+      "success": true,
+      "data": {
+        "date": "2026-01-22",
+        "hero_metrics": [
+          {
+            "id": "no-show-rate",
+            "label": "No-Show Rate",
+            "value": "0.0%",
+            "change": 0.0,
+            "change_label": "0.0% increase",
+            "trend": "up",
+            "good_direction": "down"
+          },
+          {
+            "id": "appointments-recovered",
+            "label": "Appointments Recovered by AI",
+            "value": "3",
+            "change": 3.0,
+            "change_label": "3 more vs last period",
+            "trend": "up",
+            "good_direction": "up"
+          },
+          {
+            "id": "admin-hours-saved",
+            "label": "Admin Hours Saved",
+            "value": "1.8 hrs",
+            "change": 18.0,
+            "change_label": "18% more efficient",
+            "trend": "up",
+            "good_direction": "up"
+          },
+          {
+            "id": "clinic-utilization",
+            "label": "Clinic Utilization",
+            "value": "4.0%",
+            "change": 12.0,
+            "change_label": "12% increase",
+            "trend": "up",
+            "good_direction": "up"
+          }
+        ],
+        "no_show_by_doctor": [
+          {
+            "doctor_id": "2a063058-c6c4-436d-932e-60c0f9a6dbaa",
+            "doctor": "Dr. Sarah Chen",
+            "rate": 0.0,
+            "appointments": 3
+          },
+          {
+            "doctor_id": "8829df65-4a12-4fb7-9696-db6a0d21f510",
+            "doctor": "Dr. Michael Park",
+            "rate": 0.0,
+            "appointments": 6
+          },
+          {
+            "doctor_id": "c640a67a-f12e-41f3-95dc-0585af3b2c1c",
+            "doctor": "Dr. Jennifer Williams",
+            "rate": 0.0,
+            "appointments": 3
+          },
+          {
+            "doctor_id": "26da2865-db1a-46b3-a832-de75ea3bd49f",
+            "doctor": "Dr. David Rodriguez",
+            "rate": 0.0,
+            "appointments": 6
+          },
+          {
+            "doctor_id": "acf75011-4fa1-4399-80d6-f695823df50b",
+            "doctor": "Dr. Emily Thompson",
+            "rate": 0.0,
+            "appointments": 3
+          }
+        ],
+        "no_show_by_visit_type": [
+          {
+            "type": "In-Clinic",
+            "rate": 0.0,
+            "appointments": 15
+          },
+          {
+            "type": "Virtual",
+            "rate": 0.0,
+            "appointments": 6
+          }
+        ],
+        "no_show_by_day_of_week": [
+          {
+            "day": "Monday",
+            "rate": 0.0
+          },
+          {
+            "day": "Tuesday",
+            "rate": 0.0
+          },
+          {
+            "day": "Wednesday",
+            "rate": 0.0
+          },
+          {
+            "day": "Thursday",
+            "rate": 0.0
+          },
+          {
+            "day": "Friday",
+            "rate": 0.0
+          },
+          {
+            "day": "Saturday",
+            "rate": 0.0
+          },
+          {
+            "day": "Sunday",
+            "rate": 0.0
+          }
+        ],
+        "follow_up_data": {
+          "scheduled": 12,
+          "completed": 0,
+          "missed": 0,
+          "completion_rate": 0.0,
+          "retention_impact": "+0.0% patient return rate vs manual scheduling"
+        },
+        "admin_efficiency": {
+          "calls_automated": 3,
+          "forms_auto_completed": 9,
+          "manual_tasks_avoided": 12,
+          "hours_per_week": 1.8,
+          "cost_savings": "$88",
+          "cost_savings_monthly": "$350"
+        },
+        "doctor_capacity": [
+          {
+            "doctor_id": "2a063058-c6c4-436d-932e-60c0f9a6dbaa",
+            "doctor": "Dr. Sarah Chen",
+            "appointments": 3,
+            "utilization": 2.7,
+            "specialty": "Family Medicine"
+          },
+          {
+            "doctor_id": "8829df65-4a12-4fb7-9696-db6a0d21f510",
+            "doctor": "Dr. Michael Park",
+            "appointments": 6,
+            "utilization": 5.4,
+            "specialty": "Internal Medicine"
+          },
+          {
+            "doctor_id": "c640a67a-f12e-41f3-95dc-0585af3b2c1c",
+            "doctor": "Dr. Jennifer Williams",
+            "appointments": 3,
+            "utilization": 2.7,
+            "specialty": "Pediatrics"
+          },
+          {
+            "doctor_id": "26da2865-db1a-46b3-a832-de75ea3bd49f",
+            "doctor": "Dr. David Rodriguez",
+            "appointments": 6,
+            "utilization": 5.4,
+            "specialty": "Cardiology"
+          },
+          {
+            "doctor_id": "acf75011-4fa1-4399-80d6-f695823df50b",
+            "doctor": "Dr. Emily Thompson",
+            "appointments": 3,
+            "utilization": 2.7,
+            "specialty": "Dermatology"
+          }
+        ],
+        "ai_performance": {
+          "total_interactions": 3,
+          "confirmations_achieved": 3,
+          "escalations_to_humans": 0,
+          "success_rate": 100.0,
+          "avg_resolution_time": "0m 45s"
+        },
+        "roi_summary": {
+          "appointments_recovered_weekly": 3,
+          "monthly_cost_savings": 350.0,
+          "message": "Clinicflow is recovering 3 appointments per week and saving $350/month in admin costs"
+        }
+      }
+    },
+    "GET /api/owner/voice-ai/logs": {
+      "status": 200,
+      "success": true,
+      "data": [
+        {
+          "id": "dda5a18b-c897-411d-b060-4195e5560d89",
+          "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+          "appointment_id": null,
+          "patient_id": null,
+          "call_sid": null,
+          "call_type": "confirmation",
+          "direction": "outbound",
+          "status": "completed",
+          "outcome": "confirmed",
+          "initiated_at": null,
+          "answered_at": null,
+          "ended_at": null,
+          "duration_seconds": 45,
+          "transcript": null,
+          "escalated": false,
+          "escalation_reason": null,
+          "from_number": null,
+          "to_number": "+15551234567",
+          "created_at": "2026-01-22T09:37:03.174866Z"
+        },
+        {
+          "id": "d7faa12a-2ea6-4540-b9df-88e8640cbf69",
+          "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+          "appointment_id": null,
+          "patient_id": null,
+          "call_sid": null,
+          "call_type": "confirmation",
+          "direction": "outbound",
+          "status": "completed",
+          "outcome": "confirmed",
+          "initiated_at": null,
+          "answered_at": null,
+          "ended_at": null,
+          "duration_seconds": 45,
+          "transcript": null,
+          "escalated": false,
+          "escalation_reason": null,
+          "from_number": null,
+          "to_number": "+15551234567",
+          "created_at": "2026-01-22T09:33:31.721744Z"
+        },
+        {
+          "id": "9d986601-8506-4382-88fe-dd6df0302d77",
+          "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+          "appointment_id": null,
+          "patient_id": null,
+          "call_sid": null,
+          "call_type": "confirmation",
+          "direction": "outbound",
+          "status": "completed",
+          "outcome": "confirmed",
+          "initiated_at": null,
+          "answered_at": null,
+          "ended_at": null,
+          "duration_seconds": 45,
+          "transcript": null,
+          "escalated": false,
+          "escalation_reason": null,
+          "from_number": null,
+          "to_number": "+15551234567",
+          "created_at": "2026-01-22T09:33:18.590118Z"
+        }
+      ]
+    },
+    "GET /api/owner/voice-ai/stats": {
+      "status": 200,
+      "success": true,
+      "data": {
+        "date_range": {
+          "from": "2026-01-15",
+          "to": "2026-01-22"
+        },
+        "stats": {
+          "total_calls": 3,
+          "successful_calls": 3,
+          "failed_calls": 0,
+          "escalated_calls": 0,
+          "avg_duration_seconds": 45.0,
+          "confirmations_achieved": 3,
+          "success_rate": 100.0
+        },
+        "recent_calls": [
+          {
+            "id": "dda5a18b-c897-411d-b060-4195e5560d89",
+            "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+            "appointment_id": null,
+            "patient_id": null,
+            "call_sid": null,
+            "call_type": "confirmation",
+            "direction": "outbound",
+            "status": "completed",
+            "outcome": "confirmed",
+            "initiated_at": null,
+            "answered_at": null,
+            "ended_at": null,
+            "duration_seconds": 45,
+            "transcript": null,
+            "escalated": false,
+            "escalation_reason": null,
+            "from_number": null,
+            "to_number": "+15551234567",
+            "created_at": "2026-01-22T09:37:03.174866Z"
+          },
+          {
+            "id": "d7faa12a-2ea6-4540-b9df-88e8640cbf69",
+            "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+            "appointment_id": null,
+            "patient_id": null,
+            "call_sid": null,
+            "call_type": "confirmation",
+            "direction": "outbound",
+            "status": "completed",
+            "outcome": "confirmed",
+            "initiated_at": null,
+            "answered_at": null,
+            "ended_at": null,
+            "duration_seconds": 45,
+            "transcript": null,
+            "escalated": false,
+            "escalation_reason": null,
+            "from_number": null,
+            "to_number": "+15551234567",
+            "created_at": "2026-01-22T09:33:31.721744Z"
+          },
+          {
+            "id": "9d986601-8506-4382-88fe-dd6df0302d77",
+            "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+            "appointment_id": null,
+            "patient_id": null,
+            "call_sid": null,
+            "call_type": "confirmation",
+            "direction": "outbound",
+            "status": "completed",
+            "outcome": "confirmed",
+            "initiated_at": null,
+            "answered_at": null,
+            "ended_at": null,
+            "duration_seconds": 45,
+            "transcript": null,
+            "escalated": false,
+            "escalation_reason": null,
+            "from_number": null,
+            "to_number": "+15551234567",
+            "created_at": "2026-01-22T09:33:18.590118Z"
+          }
+        ]
+      }
+    },
+    "POST /api/owner/voice-ai/logs": {
+      "status": 201,
+      "success": true,
+      "data": {
+        "id": "1f6b7b96-69e0-4664-b66b-3bb6240df4c4",
+        "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+        "appointment_id": null,
+        "patient_id": null,
+        "call_sid": null,
+        "call_type": "confirmation",
+        "direction": "outbound",
+        "status": "pending",
+        "outcome": null,
+        "initiated_at": null,
+        "answered_at": null,
+        "ended_at": null,
+        "duration_seconds": 0,
+        "transcript": null,
+        "escalated": false,
+        "escalation_reason": null,
+        "from_number": null,
+        "to_number": "+15551234567",
+        "created_at": "2026-01-22T09:37:30.715694Z"
+      }
+    },
+    "PUT /api/owner/voice-ai/logs/:id": {
+      "status": 200,
+      "success": true,
+      "data": {
+        "id": "1f6b7b96-69e0-4664-b66b-3bb6240df4c4",
+        "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+        "appointment_id": null,
+        "patient_id": null,
+        "call_sid": null,
+        "call_type": "confirmation",
+        "direction": "outbound",
+        "status": "completed",
+        "outcome": "confirmed",
+        "initiated_at": null,
+        "answered_at": null,
+        "ended_at": null,
+        "duration_seconds": 45,
+        "transcript": null,
+        "escalated": false,
+        "escalation_reason": null,
+        "from_number": null,
+        "to_number": "+15551234567",
+        "created_at": "2026-01-22T09:37:30.715694Z"
+      }
+    },
+    "GET /api/owner/automation/rules": {
+      "status": 200,
+      "success": true,
+      "data": []
+    },
+    "POST /api/owner/automation/rules": {
+      "status": 201,
+      "success": true,
+      "data": {
+        "name": "Test Confirmation Rule",
+        "description": "Sends SMS confirmation on appointment creation",
+        "rule_type": "confirmation",
+        "trigger_event": "appointment_created",
+        "trigger_conditions": {},
+        "action_type": "send_sms",
+        "action_config": {
+          "template": "confirmation"
+        },
+        "enabled": true,
+        "priority": 10,
+        "id": "ca06f982-fbca-4d52-a596-649e9256fba3",
+        "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+        "times_triggered": 0,
+        "last_triggered_at": null,
+        "success_count": 0,
+        "failure_count": 0,
+        "created_at": "2026-01-22T09:37:30.833598Z",
+        "updated_at": "2026-01-22T09:37:30.833598Z"
+      }
+    },
+    "GET /api/owner/automation/rules/:id": {
+      "status": 200,
+      "success": true,
+      "data": {
+        "name": "Test Confirmation Rule",
+        "description": "Sends SMS confirmation on appointment creation",
+        "rule_type": "confirmation",
+        "trigger_event": "appointment_created",
+        "trigger_conditions": {},
+        "action_type": "send_sms",
+        "action_config": {
+          "template": "confirmation"
+        },
+        "enabled": true,
+        "priority": 10,
+        "id": "ca06f982-fbca-4d52-a596-649e9256fba3",
+        "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+        "times_triggered": 0,
+        "last_triggered_at": null,
+        "success_count": 0,
+        "failure_count": 0,
+        "created_at": "2026-01-22T09:37:30.833598Z",
+        "updated_at": "2026-01-22T09:37:30.833598Z"
+      }
+    },
+    "PUT /api/owner/automation/rules/:id": {
+      "status": 200,
+      "success": true,
+      "data": {
+        "name": "Updated Confirmation Rule",
+        "description": "Sends SMS confirmation on appointment creation",
+        "rule_type": "confirmation",
+        "trigger_event": "appointment_created",
+        "trigger_conditions": {},
+        "action_type": "send_sms",
+        "action_config": {
+          "template": "confirmation"
+        },
+        "enabled": false,
+        "priority": 10,
+        "id": "ca06f982-fbca-4d52-a596-649e9256fba3",
+        "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+        "times_triggered": 0,
+        "last_triggered_at": null,
+        "success_count": 0,
+        "failure_count": 0,
+        "created_at": "2026-01-22T09:37:30.833598Z",
+        "updated_at": "2026-01-22T09:37:30.908176Z"
+      }
+    },
+    "DELETE /api/owner/automation/rules/:id": {
+      "status": 204,
+      "success": true
+    },
+    "GET /api/owner/automation/executions": {
+      "status": 200,
+      "success": true,
+      "data": []
+    },
+    "GET /api/owner/settings": {
+      "status": 200,
+      "success": true,
+      "data": {
+        "working_hours": {
+          "friday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          },
+          "monday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          },
+          "sunday": {
+            "start": "09:00",
+            "end": "13:00",
+            "enabled": false
+          },
+          "tuesday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          },
+          "saturday": {
+            "start": "09:00",
+            "end": "13:00",
+            "enabled": false
+          },
+          "thursday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          },
+          "wednesday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          }
+        },
+        "default_appointment_duration": 30,
+        "buffer_between_appointments": 0,
+        "max_appointments_per_day": 50,
+        "confirmation_reminder_hours": 24,
+        "intake_reminder_hours": 48,
+        "follow_up_reminder_days": 7,
+        "voice_ai_enabled": true,
+        "voice_ai_auto_confirm": true,
+        "voice_ai_escalation_enabled": true,
+        "sms_enabled": true,
+        "sms_confirmation_enabled": true,
+        "sms_reminder_enabled": true,
+        "email_enabled": true,
+        "email_confirmation_enabled": true,
+        "email_reminder_enabled": true,
+        "waitlist_enabled": true,
+        "auto_fill_cancellations": true,
+        "timezone": "America/New_York",
+        "date_format": "MM/DD/YYYY",
+        "time_format": "12h",
+        "id": "4ddc38d8-8b33-4416-90cb-129c469ce8d3",
+        "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+        "created_at": "2026-01-22T09:33:18.747287Z",
+        "updated_at": "2026-01-22T09:33:18.747287Z"
+      }
+    },
+    "PUT /api/owner/settings": {
+      "status": 200,
+      "success": true,
+      "data": {
+        "working_hours": {
+          "friday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          },
+          "monday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          },
+          "sunday": {
+            "start": "09:00",
+            "end": "13:00",
+            "enabled": false
+          },
+          "tuesday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          },
+          "saturday": {
+            "start": "09:00",
+            "end": "13:00",
+            "enabled": false
+          },
+          "thursday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          },
+          "wednesday": {
+            "start": "09:00",
+            "end": "17:00",
+            "enabled": true
+          }
+        },
+        "default_appointment_duration": 30,
+        "buffer_between_appointments": 0,
+        "max_appointments_per_day": 50,
+        "confirmation_reminder_hours": 24,
+        "intake_reminder_hours": 48,
+        "follow_up_reminder_days": 7,
+        "voice_ai_enabled": true,
+        "voice_ai_auto_confirm": true,
+        "voice_ai_escalation_enabled": true,
+        "sms_enabled": true,
+        "sms_confirmation_enabled": true,
+        "sms_reminder_enabled": true,
+        "email_enabled": true,
+        "email_confirmation_enabled": true,
+        "email_reminder_enabled": true,
+        "waitlist_enabled": true,
+        "auto_fill_cancellations": true,
+        "timezone": "America/New_York",
+        "date_format": "MM/DD/YYYY",
+        "time_format": "12h",
+        "id": "4ddc38d8-8b33-4416-90cb-129c469ce8d3",
+        "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+        "created_at": "2026-01-22T09:33:18.747287Z",
+        "updated_at": "2026-01-22T09:33:18.747287Z"
+      }
+    },
+    "GET /api/owner/metrics": {
+      "status": 200,
+      "success": true,
+      "data": []
+    },
+    "GET /api/owner/capacity": {
+      "status": 200,
+      "success": true,
+      "data": [
+        {
+          "id": "2734dfe3-ce34-4f68-a14f-13ded4fc3c91",
+          "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+          "doctor_id": "2a063058-c6c4-436d-932e-60c0f9a6dbaa",
+          "doctor_name": "Dr. Sarah Chen",
+          "specialty": "Family Medicine",
+          "date": "2026-01-22",
+          "total_slots": 16,
+          "booked_slots": 0,
+          "utilization_rate": 0.0,
+          "confirmed_count": 0,
+          "unconfirmed_count": 0,
+          "completed_count": 0,
+          "cancelled_count": 0,
+          "no_show_count": 0
+        },
+        {
+          "id": "7fd9cc0e-f562-4d42-a49d-b96b883419a7",
+          "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+          "doctor_id": "8829df65-4a12-4fb7-9696-db6a0d21f510",
+          "doctor_name": "Dr. Michael Park",
+          "specialty": "Internal Medicine",
+          "date": "2026-01-22",
+          "total_slots": 16,
+          "booked_slots": 0,
+          "utilization_rate": 0.0,
+          "confirmed_count": 0,
+          "unconfirmed_count": 0,
+          "completed_count": 0,
+          "cancelled_count": 0,
+          "no_show_count": 0
+        },
+        {
+          "id": "5fed511f-f58f-4944-9cbd-289e30a25f40",
+          "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+          "doctor_id": "c640a67a-f12e-41f3-95dc-0585af3b2c1c",
+          "doctor_name": "Dr. Jennifer Williams",
+          "specialty": "Pediatrics",
+          "date": "2026-01-22",
+          "total_slots": 16,
+          "booked_slots": 0,
+          "utilization_rate": 0.0,
+          "confirmed_count": 0,
+          "unconfirmed_count": 0,
+          "completed_count": 0,
+          "cancelled_count": 0,
+          "no_show_count": 0
+        },
+        {
+          "id": "f4b2ddcc-4d00-4020-a06f-3025918cb6c8",
+          "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+          "doctor_id": "26da2865-db1a-46b3-a832-de75ea3bd49f",
+          "doctor_name": "Dr. David Rodriguez",
+          "specialty": "Cardiology",
+          "date": "2026-01-22",
+          "total_slots": 16,
+          "booked_slots": 0,
+          "utilization_rate": 0.0,
+          "confirmed_count": 0,
+          "unconfirmed_count": 0,
+          "completed_count": 0,
+          "cancelled_count": 0,
+          "no_show_count": 0
+        },
+        {
+          "id": "3481e597-9aca-40a5-ab4b-da7b9509e5e0",
+          "clinic_id": "06c68780-5d33-4d07-8c6f-7dc9c612f69e",
+          "doctor_id": "acf75011-4fa1-4399-80d6-f695823df50b",
+          "doctor_name": "Dr. Emily Thompson",
+          "specialty": "Dermatology",
+          "date": "2026-01-22",
+          "total_slots": 16,
+          "booked_slots": 0,
+          "utilization_rate": 0.0,
+          "confirmed_count": 0,
+          "unconfirmed_count": 0,
+          "completed_count": 0,
+          "cancelled_count": 0,
+          "no_show_count": 0
+        }
+      ]
+    }
+  }
+}

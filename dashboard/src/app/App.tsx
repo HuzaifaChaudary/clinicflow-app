@@ -1,78 +1,23 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Calendar, FileText, Users, Settings, LayoutDashboard, Bell, Phone } from 'lucide-react';
 import { CollapsibleSidebar } from './components/navigation/CollapsibleSidebar';
-import { ConnectedAdminDashboard } from './pages/ConnectedAdminDashboard';
-import { EnhancedSchedulePage } from './pages/EnhancedSchedulePage';
-import { VoiceAIPageEnhanced } from './pages/VoiceAIPageEnhanced';
-import { PatientsPageFinalized } from './pages/PatientsPageFinalized';
+import { ConnectedAdminDashboardPage } from './pages/ConnectedAdminDashboardPage';
+import { ConnectedSchedulePage } from './pages/ConnectedSchedulePage';
+import { ConnectedVoiceAIPage } from './pages/ConnectedVoiceAIPage';
+import { ConnectedPatientsPage } from './pages/ConnectedPatientsPage';
 import { IntakeFormsPageComplete } from './pages/IntakeFormsPageComplete';
 import { IntakeAutomationPageEnhanced } from './pages/IntakeAutomationPageEnhanced';
-import { SettingsPage } from './pages/SettingsPage';
-import { DoctorDashboard } from './pages/DoctorDashboard';
-import { DoctorVoiceAI } from './pages/DoctorVoiceAI';
-import { DoctorSettings } from './pages/DoctorSettings';
-import { OwnerDashboardPage } from './pages/OwnerDashboardPage';
-import { OwnerSettings } from './pages/OwnerSettings';
-import { useAppointmentState } from './hooks/useAppointmentState';
+import { ConnectedSettingsPage } from './pages/ConnectedSettingsPage';
+import { ConnectedDoctorDashboardPage } from './pages/ConnectedDoctorDashboardPage';
+import { ConnectedOwnerDashboard } from './pages/ConnectedOwnerDashboard';
 import { SettingsProvider } from './context/SettingsContext';
 import { RoleProvider, useRole } from './context/RoleContext';
-import { PatientFlowData } from './components/add-patient-flow/ScalableAddPatientFlow';
-import { Appointment } from './types/appointment';
-import { getDoctorNeedsAttentionCount } from './utils/roleFilters';
-import { mockDoctors } from './data/enhancedMockData';
 
 type Page = 'dashboard' | 'schedule' | 'patients' | 'intake-forms' | 'automation' | 'voice-ai' | 'settings';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
-  const { role, activeDoctorId } = useRole();
-  
-  // 🎯 DOCTOR DATE CONTEXT - Single source of truth for doctor appointments
-  const [doctorSelectedDate, setDoctorSelectedDate] = useState('2026-01-01'); // Today's date in the system
-
-  const {
-    appointments,
-    updateAppointment,
-    rescheduleAppointment,
-    cancelAppointment,
-    addPatientFromFlow,
-    cancelledAppointments,
-  } = useAppointmentState();
-
-  // Get current doctor info for filtering
-  const currentDoctor = activeDoctorId 
-    ? mockDoctors.find(d => d.id === activeDoctorId)
-    : null;
-
-  // 🎯 DOCTOR APPOINTMENTS DATASET - Single source of truth
-  // This filters by BOTH doctor AND selected date for Doctor role
-  // For Doctor role: filter by doctor name AND date
-  // For other roles: use all appointments
-  const filteredAppointments = role === 'doctor' && currentDoctor
-    ? appointments.filter(apt => 
-        apt.provider === currentDoctor.name && 
-        apt.date === doctorSelectedDate &&
-        !apt.cancelled
-      )
-    : appointments;
-
-  const filteredCancelledAppointments = role === 'doctor' && currentDoctor
-    ? cancelledAppointments.filter(apt => 
-        apt.provider === currentDoctor.name &&
-        apt.date === doctorSelectedDate
-      )
-    : cancelledAppointments;
-  
-  // 🎯 STATE RESET - Clear data when role/doctor/date changes
-  useEffect(() => {
-    // Reset to default date when switching roles or changing doctor
-    if (role === 'doctor') {
-      // Keep current date
-    } else {
-      // Reset date when leaving doctor role
-      setDoctorSelectedDate('2026-01-01');
-    }
-  }, [role, activeDoctorId]);
+  const { role } = useRole();
 
   // Role-based navigation items
   const getNavigationItems = () => {
@@ -92,7 +37,6 @@ function AppContent() {
           id: 'voice-ai' as Page,
           label: 'Voice AI',
           icon: Phone,
-          badge: getDoctorNeedsAttentionCount(appointments, currentDoctor?.name || ''),
         },
         {
           id: 'settings' as Page,
@@ -169,129 +113,49 @@ function AppContent() {
     if (role === 'doctor') {
       switch (currentPage) {
         case 'dashboard':
-          return (
-            <DoctorDashboard
-              appointments={filteredAppointments}
-              onNavigateToSchedule={() => setCurrentPage('schedule')}
-              doctorId={currentDoctor?.name || ''}
-            />
-          );
+          return <ConnectedDoctorDashboardPage />;
         case 'schedule':
-          return (
-            <EnhancedSchedulePage
-              appointments={filteredAppointments}
-              onUpdateAppointment={updateAppointment}
-              onReschedule={rescheduleAppointment}
-              onCancel={cancelAppointment}
-              onAddPatient={addPatientFromFlow}
-            />
-          );
+          return <ConnectedSchedulePage />;
         case 'voice-ai':
-          return (
-            <DoctorVoiceAI
-              appointments={filteredAppointments}
-            />
-          );
+          return <ConnectedVoiceAIPage />;
         case 'settings':
-          return <DoctorSettings />;
+          return <ConnectedSettingsPage />;
         default:
-          return (
-            <DoctorDashboard
-              appointments={filteredAppointments}
-              onNavigateToSchedule={() => setCurrentPage('schedule')}
-              doctorId={currentDoctor?.name || ''}
-            />
-          );
+          return <ConnectedDoctorDashboardPage />;
       }
     }
 
     if (role === 'owner') {
       switch (currentPage) {
         case 'dashboard':
-          return (
-            <OwnerDashboardPage
-              appointments={appointments}
-              cancelledAppointments={cancelledAppointments}
-              onNavigateToSchedule={() => setCurrentPage('schedule')}
-              onUpdateAppointment={updateAppointment}
-              onReschedule={rescheduleAppointment}
-              onCancel={cancelAppointment}
-            />
-          );
+          return <ConnectedOwnerDashboard />;
         case 'schedule':
-          return (
-            <EnhancedSchedulePage
-              appointments={appointments}
-              onUpdateAppointment={updateAppointment}
-              onReschedule={rescheduleAppointment}
-              onCancel={cancelAppointment}
-              onAddPatient={addPatientFromFlow}
-            />
-          );
+          return <ConnectedSchedulePage />;
         case 'settings':
-          return <OwnerSettings />;
+          return <ConnectedSettingsPage />;
         default:
-          return (
-            <OwnerDashboardPage
-              appointments={appointments}
-              cancelledAppointments={cancelledAppointments}
-              onNavigateToSchedule={() => setCurrentPage('schedule')}
-              onUpdateAppointment={updateAppointment}
-              onReschedule={rescheduleAppointment}
-              onCancel={cancelAppointment}
-            />
-          );
+          return <ConnectedOwnerDashboard />;
       }
     }
 
     // Admin pages (default)
     switch (currentPage) {
       case 'dashboard':
-        return (
-          <ConnectedAdminDashboard
-            appointments={appointments}
-            onNavigateToSchedule={() => setCurrentPage('schedule')}
-            onNavigateToVoiceAI={() => setCurrentPage('voice-ai')}
-          />
-        );
+        return <ConnectedAdminDashboardPage />;
       case 'schedule':
-        return (
-          <EnhancedSchedulePage
-            appointments={appointments}
-            onUpdateAppointment={updateAppointment}
-            onReschedule={rescheduleAppointment}
-            onCancel={cancelAppointment}
-            onAddPatient={addPatientFromFlow}
-          />
-        );
+        return <ConnectedSchedulePage />;
       case 'patients':
-        return <PatientsPageFinalized appointments={appointments} />;
+        return <ConnectedPatientsPage />;
       case 'intake-forms':
         return <IntakeFormsPageComplete />;
       case 'automation':
-        return (
-          <IntakeAutomationPageEnhanced
-            appointments={appointments}
-            onUpdateAppointment={updateAppointment}
-          />
-        );
+        return <IntakeAutomationPageEnhanced onBack={() => setCurrentPage('dashboard')} />;
       case 'voice-ai':
-        return (
-          <VoiceAIPageEnhanced
-            appointments={appointments}
-            onUpdateAppointment={updateAppointment}
-          />
-        );
+        return <ConnectedVoiceAIPage />;
       case 'settings':
-        return <SettingsPage />;
+        return <ConnectedSettingsPage />;
       default:
-        return (
-          <ConnectedAdminDashboard
-            appointments={appointments}
-            onNavigateToSchedule={() => setCurrentPage('schedule')}
-            onNavigateToVoiceAI={() => setCurrentPage('voice-ai')}
-          />
-        );
+        return <ConnectedAdminDashboardPage />;
     }
   };
 

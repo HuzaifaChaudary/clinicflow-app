@@ -21,6 +21,11 @@ email-validator==2.1.0
 # AI
 openai==1.10.0
 
+# Twilio (Voice AI & SMS)
+twilio==8.10.0
+
+# Email (SMTP - built-in Python, no extra package needed)
+
 # Utilities
 python-dotenv==1.0.0
 

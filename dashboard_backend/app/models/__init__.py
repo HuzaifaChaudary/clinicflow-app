@@ -5,6 +5,14 @@ from app.models.patient import Patient
 from app.models.appointment import Appointment
 from app.models.cancellation import Cancellation
 from app.models.intake import IntakeForm, AIIntakeSummary
+from app.models.owner import (
+    OwnerMetrics,
+    VoiceAILog,
+    AutomationRule,
+    AutomationExecution,
+    ClinicSettings,
+    DoctorCapacity
+)
 
 __all__ = [
     "Clinic",
@@ -15,5 +23,11 @@ __all__ = [
     "Cancellation",
     "IntakeForm",
     "AIIntakeSummary",
+    "OwnerMetrics",
+    "VoiceAILog",
+    "AutomationRule",
+    "AutomationExecution",
+    "ClinicSettings",
+    "DoctorCapacity",
 ]
 

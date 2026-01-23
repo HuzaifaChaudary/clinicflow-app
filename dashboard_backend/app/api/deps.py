@@ -63,3 +63,23 @@ def require_admin_or_doctor(current_user: User = Depends(get_current_user)) -> U
         )
     return current_user
 
+
+def require_owner(current_user: User = Depends(get_current_user)) -> User:
+    """Require owner role"""
+    if current_user.role != "owner":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner access required"
+        )
+    return current_user
+
+
+def require_owner_or_admin(current_user: User = Depends(get_current_user)) -> User:
+    """Require owner or admin role"""
+    if current_user.role not in ["owner", "admin"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Owner or Admin access required"
+        )
+    return current_user
+
