@@ -1,7 +1,8 @@
-import { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, UserCog, Stethoscope, Building2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { ChevronDown, Check, UserCog, Stethoscope, Building2, LogOut } from 'lucide-react';
 import { useRole } from '../../context/RoleContext';
 import { mockDoctors } from '../../data/enhancedMockData';
+import { auth } from '../../services/api';
 
 type Role = 'admin' | 'doctor' | 'owner';
 
@@ -39,9 +40,8 @@ interface ProfileSwitcherProps {
 }
 
 export function ProfileSwitcher({ isExpanded, isMobile }: ProfileSwitcherProps) {
-  const { role, switchRole, activeDoctorId, setActiveDoctorId } = useRole();
+  const { role, activeDoctorId, setRole } = useRole();
   const [isOpen, setIsOpen] = useState(false);
-  const [showDoctorSelect, setShowDoctorSelect] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -49,38 +49,26 @@ export function ProfileSwitcher({ isExpanded, isMobile }: ProfileSwitcherProps) 
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
-        setShowDoctorSelect(false);
       }
     }
 
-    if (isOpen || showDoctorSelect) {
+    if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => document.removeEventListener('mousedown', handleClickOutside);
     }
-  }, [isOpen, showDoctorSelect]);
+  }, [isOpen]);
 
-  const handleRoleSwitch = (newRole: Role) => {
-    if (newRole === 'doctor') {
-      // If doctor already selected, switch directly
-      if (activeDoctorId) {
-        switchRole(newRole);
-        setIsOpen(false);
-      } else {
-        // Show doctor selection
-        setShowDoctorSelect(true);
-        setIsOpen(false);
-      }
-    } else {
-      switchRole(newRole);
-      setIsOpen(false);
-      setShowDoctorSelect(false);
-    }
-  };
+  // Role switching removed - users can only see their own role
 
-  const handleDoctorSelect = (doctorId: string) => {
-    setActiveDoctorId(doctorId);
-    switchRole('doctor');
-    setShowDoctorSelect(false);
+  const handleSignOut = () => {
+    // Clear authentication token
+    auth.logout();
+    // Clear role from context and localStorage
+    setRole('admin'); // Reset to default, will be cleared by login page
+    localStorage.removeItem('clinicflow-role');
+    localStorage.removeItem('clinicflow-active-doctor-id');
+    // Reload the page to show login page
+    window.location.href = '/';
   };
 
   const currentRole = roleOptions.find(r => r.id === role);
@@ -168,7 +156,7 @@ export function ProfileSwitcher({ isExpanded, isMobile }: ProfileSwitcherProps) 
         </div>
       </button>
 
-      {/* Dropdown Menu */}
+      {/* Dropdown Menu - Only show current role, no switching allowed */}
       {isOpen && (isExpanded || isMobile) && (
         <div
           className="absolute bottom-full left-0 right-0 mb-2 rounded-xl shadow-lg border overflow-hidden"
@@ -180,74 +168,44 @@ export function ProfileSwitcher({ isExpanded, isMobile }: ProfileSwitcherProps) 
         >
           <div className="py-2">
             <div className="px-3 py-2 text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
-              Switch Role
+              Current Role
             </div>
-            {roleOptions.map((option) => {
-              const Icon = option.icon;
-              const isActive = role === option.id;
+            {(() => {
+              // Only show the current user's role, no switching allowed
+              const currentOption = roleOptions.find(opt => opt.id === role);
+              if (!currentOption) return null;
+              
+              const Icon = currentOption.icon;
 
               return (
-                <button
-                  key={option.id}
-                  onClick={() => handleRoleSwitch(option.id)}
-                  className="w-full px-3 py-2.5 flex items-center gap-3 transition-colors"
+                <div
+                  className="w-full px-3 py-2.5 flex items-center gap-3"
                   style={{
-                    backgroundColor: isActive ? 'var(--surface-hover)' : 'transparent',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = 'var(--surface-hover)';
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
+                    backgroundColor: 'var(--surface-hover)',
                   }}
                 >
                   <Icon className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--text-secondary)' }} />
                   <div className="flex-1 text-left">
                     <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                      {option.label}
+                      {currentOption.label}
                     </p>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {option.description}
+                      {currentOption.description}
                     </p>
                   </div>
-                  {isActive && (
                     <Check className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--accent-primary)' }} />
-                  )}
-                </button>
+                </div>
               );
-            })}
-          </div>
-        </div>
-      )}
+            })()}
 
-      {/* Doctor Selection Modal */}
-      {showDoctorSelect && (isExpanded || isMobile) && (
-        <div
-          className="absolute bottom-full left-0 right-0 mb-2 rounded-xl shadow-lg border overflow-hidden"
-          style={{
-            backgroundColor: 'var(--surface-card)',
-            borderColor: 'var(--border-default)',
-            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.12)',
-          }}
-        >
-          <div className="py-2">
-            <div className="px-3 py-2 text-xs font-medium flex items-center justify-between">
-              <span style={{ color: 'var(--text-muted)' }}>Select Doctor Profile</span>
+            {/* Sign Out Button */}
+            <div className="border-t mt-2 pt-2" style={{ borderColor: 'var(--border-default)' }}>
               <button
-                onClick={() => setShowDoctorSelect(false)}
-                className="text-xs"
-                style={{ color: 'var(--text-secondary)' }}
-              >
-                Cancel
-              </button>
-            </div>
-            {mockDoctors.map((doctor) => (
-              <button
-                key={doctor.id}
-                onClick={() => handleDoctorSelect(doctor.id)}
+                onClick={handleSignOut}
                 className="w-full px-3 py-2.5 flex items-center gap-3 transition-colors"
+                style={{
+                  backgroundColor: 'transparent',
+                }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = 'var(--surface-hover)';
                 }}
@@ -255,28 +213,19 @@ export function ProfileSwitcher({ isExpanded, isMobile }: ProfileSwitcherProps) 
                   e.currentTarget.style.backgroundColor = 'transparent';
                 }}
               >
-                <div
-                  className="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm flex-shrink-0"
-                  style={{
-                    backgroundColor: doctor.color || 'var(--accent-primary)',
-                    color: 'white',
-                  }}
-                >
-                  {doctor.initials}
-                </div>
+                <LogOut className="w-5 h-5 flex-shrink-0" style={{ color: 'var(--status-error)' }} />
                 <div className="flex-1 text-left">
-                  <p className="font-medium" style={{ color: 'var(--text-primary)' }}>
-                    {doctor.name}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    {doctor.specialty}
+                  <p className="font-medium" style={{ color: 'var(--status-error)' }}>
+                    Sign Out
                   </p>
                 </div>
               </button>
-            ))}
+            </div>
           </div>
         </div>
       )}
+
+      {/* Doctor selection removed - users cannot switch roles */}
     </div>
   );
 }

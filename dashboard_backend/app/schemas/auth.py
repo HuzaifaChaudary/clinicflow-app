@@ -40,14 +40,3 @@ class GoogleSignupRequest(BaseModel):
 class GoogleLoginRequest(BaseModel):
     id_token: str  # Google ID token
 
-
-class SignupRequest(BaseModel):
-    email: EmailStr
-    password: str
-    name: str
-    role: str  # admin, doctor, or owner
-    clinic_name: str
-    clinic_type: Optional[str] = None
-    clinic_size: Optional[str] = None
-    timezone: str = "America/New_York"
-

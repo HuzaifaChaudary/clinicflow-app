@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { Plus, FileText, Archive, Search, MoreVertical, Edit, ArchiveRestore } from 'lucide-react';
 import { VisitTypeForm } from '../components/form-builder/FormBuilderTypes';
 import { CreateVisitTypeFlow } from '../components/form-builder/CreateVisitTypeFlow';
+import { useClinicFormat } from '../hooks/useClinicFormat';
 
 interface IntakeFormsPageCompleteProps {
   onNavigateToAutomation?: () => void;
 }
 
 export function IntakeFormsPageComplete({ onNavigateToAutomation }: IntakeFormsPageCompleteProps) {
+  const { formatDate } = useClinicFormat();
   const [visitTypeForms, setVisitTypeForms] = useState<VisitTypeForm[]>([
     {
       id: 'vt_1',
@@ -318,7 +320,7 @@ export function IntakeFormsPageComplete({ onNavigateToAutomation }: IntakeFormsP
                 </div>
 
                 <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  Last updated {form.updatedAt.toLocaleDateString()}
+                  Last updated {formatDate(form.updatedAt)}
                 </div>
               </div>
 

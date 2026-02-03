@@ -1,3 +1,5 @@
+import React from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { ReactNode } from 'react';
 
@@ -10,14 +12,28 @@ interface InsightPanelProps {
 }
 
 export function InsightPanel({ isOpen, onClose, title, subtitle, children }: InsightPanelProps) {
-  if (!isOpen) return null;
+  // #region agent log
+  fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'InsightPanel.tsx:12',message:'InsightPanel component called',data:{isOpen:isOpen,title:title,type:typeof isOpen},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
+  console.log('[InsightPanel] Rendering, isOpen:', isOpen, 'title:', title);
+  if (!isOpen) {
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'InsightPanel.tsx:15',message:'InsightPanel returning null (isOpen=false)',data:{isOpen:isOpen,title:title},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    console.log('[InsightPanel] Panel is closed, returning null');
+    return null;
+  }
+  // #region agent log
+  fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'InsightPanel.tsx:20',message:'InsightPanel rendering content (isOpen=true)',data:{isOpen:isOpen,title:title},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
+  console.log('[InsightPanel] Panel is open, rendering content');
 
-  return (
+  const panelContent = (
     <>
       {/* Overlay */}
       <div
         className="fixed inset-0 bg-black/20 animate-fade-in"
-        style={{ zIndex: 9998 }}
+        style={{ zIndex: 99998 }}
         onClick={onClose}
       />
 
@@ -26,7 +42,7 @@ export function InsightPanel({ isOpen, onClose, title, subtitle, children }: Ins
         className="fixed right-0 top-0 h-full w-full max-w-2xl shadow-2xl overflow-y-auto animate-slide-in-right"
         style={{
           backgroundColor: 'var(--surface-card)',
-          zIndex: 9999,
+          zIndex: 99999,
         }}
       >
         {/* Header */}
@@ -69,6 +85,11 @@ export function InsightPanel({ isOpen, onClose, title, subtitle, children }: Ins
       </div>
     </>
   );
+
+  // Render using portal to escape overflow-hidden containers
+  return typeof document !== 'undefined' 
+    ? createPortal(panelContent, document.body)
+    : null;
 }
 
 // Insight Section Component
@@ -182,7 +203,7 @@ export function SimpleTrendChart({ data, unit = '%', showToggle = true }: Simple
       <div className="space-y-3">
         {data.map((point, idx) => (
           <div key={idx}>
-            <div className="flex items-center justify-between mb-1">
+            <div className="flex items-center justify-between mb-1.5">
               <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
                 {point.label}
               </span>
@@ -191,7 +212,7 @@ export function SimpleTrendChart({ data, unit = '%', showToggle = true }: Simple
               </span>
             </div>
             <div 
-              className="h-2 rounded-full"
+              className="h-2.5 rounded-full"
               style={{ backgroundColor: 'var(--cf-neutral-20)' }}
             >
               <div

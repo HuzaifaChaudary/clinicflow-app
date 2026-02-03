@@ -4,6 +4,7 @@ from typing import List, Optional
 from uuid import UUID
 from datetime import date, datetime
 from app.database import get_db
+from app.config import settings
 from app.models.appointment import Appointment
 from app.models.cancellation import Cancellation
 from app.models.doctor import Doctor
@@ -12,7 +13,7 @@ from app.schemas.appointment import (
     AppointmentCreate, AppointmentUpdate, AppointmentResponse, AppointmentList,
     AppointmentConfirm, AppointmentCancel, AppointmentArrive
 )
-from app.api.deps import get_current_user, require_admin, require_admin_or_doctor
+from app.api.deps import get_current_user, require_admin, require_admin_or_doctor, require_owner_or_admin
 from app.models.user import User
 from app.services.scheduling_service import validate_appointment_creation
 
@@ -141,8 +142,15 @@ def create_appointment(
     # Load relationships
     appointment = db.query(Appointment).options(
         joinedload(Appointment.doctor),
-        joinedload(Appointment.patient)
+        joinedload(Appointment.patient),
+        joinedload(Appointment.clinic)
     ).filter(Appointment.id == appointment.id).first()
+    
+    # Trigger automation rules for appointment_created (respects clinic settings)
+    if settings.AUTOMATION_ENABLED:
+        from app.services.automation_service import AutomationService
+        automation_service = AutomationService(db, current_user.clinic_id)
+        automation_service.process_appointment_created(appointment)
     
     return AppointmentResponse.model_validate(appointment)
 
@@ -182,10 +190,10 @@ def update_appointment(
 @router.post("/{appointment_id}/confirm", response_model=AppointmentResponse)
 def confirm_appointment(
     appointment_id: UUID,
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_owner_or_admin),
     db: Session = Depends(get_db)
 ):
-    """Confirm appointment - admin only"""
+    """Confirm appointment - owner or admin"""
     appointment = db.query(Appointment).filter(
         Appointment.id == appointment_id,
         Appointment.clinic_id == current_user.clinic_id

@@ -24,6 +24,10 @@ export function ConnectedSettingsPage() {
 
   useEffect(() => {
     if (settingsData) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConnectedSettingsPage.tsx:25',message:'Settings data loaded',data:{hasData:!!settingsData,defaultDuration:settingsData.default_appointment_duration,buffer:settingsData.buffer_between_appointments,maxAppointments:settingsData.max_appointments_per_day},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+      // #endregion
+      console.log('[ConnectedSettingsPage] Settings loaded:', settingsData);
       setLocalSettings(settingsData);
     }
   }, [settingsData]);
@@ -32,11 +36,21 @@ export function ConnectedSettingsPage() {
     setSaving(true);
     setSaveSuccess(false);
     try {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConnectedSettingsPage.tsx:31',message:'handleSave called',data:{localSettings:localSettings,hasDefaultDuration:!!localSettings.default_appointment_duration,hasBuffer:!!localSettings.buffer_between_appointments,hasMaxAppointments:!!localSettings.max_appointments_per_day},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+      // #endregion
+      console.log('[ConnectedSettingsPage] Saving settings:', localSettings);
       await owner.updateSettings(localSettings);
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConnectedSettingsPage.tsx:36',message:'Settings saved successfully',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+      // #endregion
       setSaveSuccess(true);
       refetch();
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (err) {
+    } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'ConnectedSettingsPage.tsx:40',message:'Settings save failed',data:{error:err?.message||'Unknown error'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+      // #endregion
       console.error('Failed to save settings:', err);
     } finally {
       setSaving(false);

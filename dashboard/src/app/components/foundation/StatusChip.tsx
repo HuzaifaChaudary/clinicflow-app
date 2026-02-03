@@ -12,8 +12,11 @@ type ChipType =
   | 'voice'
   | 'alert';
 
+type Variant = 'success' | 'warning' | 'error' | 'info' | 'neutral';
+
 interface StatusChipProps {
-  type: ChipType;
+  type?: ChipType;
+  variant?: Variant;
   label?: string;
   size?: 'sm' | 'md';
 }
@@ -80,10 +83,71 @@ const chipConfig: Record<ChipType, {
   },
 };
 
-export function StatusChip({ type, label, size = 'md' }: StatusChipProps) {
-  const config = chipConfig[type];
+const variantConfig: Record<Variant, {
+  icon: LucideIcon;
+  color: string;
+  bgColor: string;
+}> = {
+  'success': {
+    icon: Check,
+    color: 'var(--status-success)',
+    bgColor: 'var(--status-success-bg)',
+  },
+  'warning': {
+    icon: AlertCircle,
+    color: 'var(--status-warning)',
+    bgColor: 'var(--status-warning-bg)',
+  },
+  'error': {
+    icon: X,
+    color: 'var(--status-error)',
+    bgColor: 'var(--status-error-bg)',
+  },
+  'info': {
+    icon: FileText,
+    color: 'var(--status-info)',
+    bgColor: 'var(--status-info-bg)',
+  },
+  'neutral': {
+    icon: FileText,
+    color: 'var(--text-secondary)',
+    bgColor: 'var(--surface-hover)',
+  },
+};
+
+export function StatusChip({ type, variant, label, size = 'md' }: StatusChipProps) {
+  // Support both type and variant props
+  let config;
+  let displayLabel: string;
+  
+  if (type) {
+    // Use type-based config
+    config = chipConfig[type];
+    if (!config) {
+      console.error(`StatusChip: Invalid type "${type}"`);
+      return null;
+    }
+    displayLabel = label || config.label;
+  } else if (variant) {
+    // Use variant-based config
+    config = variantConfig[variant];
+    if (!config) {
+      console.error(`StatusChip: Invalid variant "${variant}"`);
+      return null;
+    }
+    displayLabel = label || '';
+  } else {
+    // Fallback if neither is provided
+    console.error('StatusChip: Either type or variant prop must be provided');
+    return null;
+  }
+  
+  if (!config || !config.icon) {
+    console.error('StatusChip: Config or icon is missing');
+    return null;
+  }
+  
   const Icon = config.icon;
-  const displayLabel = label || config.label;
 
   const sizeStyles = {
     sm: { height: '26px', padding: '0 10px', fontSize: '13px' },

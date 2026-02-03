@@ -1,14 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func, and_, or_
 from typing import Optional, List, Dict, Any
-from datetime import date
+from datetime import date, datetime, timedelta
 from app.database import get_db
 from app.models.appointment import Appointment
 from app.models.doctor import Doctor
 from app.models.patient import Patient
 from app.models.intake import AIIntakeSummary
+from app.models.owner import ClinicSettings, VoiceAILog, AutomationExecution
 from app.api.deps import get_current_user, require_admin, require_doctor
 from app.models.user import User
+from app.utils.date_format import format_time
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
@@ -98,6 +101,29 @@ class NeedsAttentionResponse(BaseModel):
     items: List[AttentionItemDetail]
 
 
+class WeeklyConfirmationDataPoint(BaseModel):
+    day: str
+    rate: float
+
+
+class NoShowTrendDataPoint(BaseModel):
+    week: str
+    noShows: int
+
+
+class RecentActivityItem(BaseModel):
+    time: str
+    patient: str
+    action: str
+    type: str
+
+
+class AdminDashboardAnalyticsResponse(BaseModel):
+    weekly_confirmation: List[WeeklyConfirmationDataPoint]
+    no_show_trend: List[NoShowTrendDataPoint]
+    recent_activity: List[RecentActivityItem]
+
+
 @router.get("/admin", response_model=AdminDashboardResponse)
 def get_admin_dashboard(
     date_param: Optional[date] = Query(None, alias="date"),
@@ -107,6 +133,12 @@ def get_admin_dashboard(
     """Get admin dashboard stats"""
     if date_param is None:
         date_param = date.today()
+    
+    # Get clinic settings for formatting
+    clinic_settings = db.query(ClinicSettings).filter(
+        ClinicSettings.clinic_id == current_user.clinic_id
+    ).first()
+    time_format = clinic_settings.time_format if clinic_settings else "12h"
     
     # Get all appointments for today
     appointments = db.query(Appointment).options(
@@ -124,12 +156,23 @@ def get_admin_dashboard(
     unconfirmed = sum(1 for apt in appointments if apt.status == "unconfirmed")
     missing_intake = sum(1 for apt in appointments if apt.intake_status == "missing")
     
+    # Calculate voice AI alerts (failed or escalated calls in last 24 hours)
+    yesterday = datetime.now() - timedelta(days=1)
+    voice_ai_alerts = db.query(VoiceAILog).filter(
+        VoiceAILog.clinic_id == current_user.clinic_id,
+        VoiceAILog.created_at >= yesterday,
+        or_(
+            VoiceAILog.status == "failed",
+            VoiceAILog.escalated == True
+        )
+    ).count()
+    
     stats = Stats(
         total_appointments=total,
         confirmed=confirmed,
         unconfirmed=unconfirmed,
         missing_intake=missing_intake,
-        voice_ai_alerts=0  # Mocked
+        voice_ai_alerts=voice_ai_alerts
     )
     
     # Build needs_attention list
@@ -139,7 +182,7 @@ def get_admin_dashboard(
             needs_attention.append(AttentionItem(
                 id=str(apt.id),
                 patient_name=apt.patient.full_name,
-                time=apt.start_time.strftime("%I:%M %p"),
+                time=format_time(apt.start_time, time_format),
                 doctor=apt.doctor.name,
                 issue="unconfirmed"
             ))
@@ -147,7 +190,7 @@ def get_admin_dashboard(
             needs_attention.append(AttentionItem(
                 id=str(apt.id),
                 patient_name=apt.patient.full_name,
-                time=apt.start_time.strftime("%I:%M %p"),
+                time=format_time(apt.start_time, time_format),
                 doctor=apt.doctor.name,
                 issue="missing_intake"
             ))
@@ -157,7 +200,7 @@ def get_admin_dashboard(
     for apt in appointments:
         todays_schedule.append(ScheduleItem(
             id=str(apt.id),
-            time=apt.start_time.strftime("%I:%M %p"),
+            time=format_time(apt.start_time, time_format),
             patient_name=apt.patient.full_name,
             doctor=apt.doctor.name,
             visit_type=apt.visit_type or "in-clinic",
@@ -187,6 +230,12 @@ def get_doctor_dashboard(
     """Get doctor dashboard stats"""
     if date_param is None:
         date_param = date.today()
+    
+    # Get clinic settings for formatting
+    clinic_settings = db.query(ClinicSettings).filter(
+        ClinicSettings.clinic_id == current_user.clinic_id
+    ).first()
+    time_format = clinic_settings.time_format if clinic_settings else "12h"
     
     # Get doctor info
     doctor = db.query(Doctor).filter(Doctor.id == current_user.doctor_id).first()
@@ -237,7 +286,7 @@ def get_doctor_dashboard(
         todays_patients.append(TodaysPatient(
             id=str(apt.patient.id),
             appointment_id=str(apt.id),
-            time=apt.start_time.strftime("%I:%M %p"),
+            time=format_time(apt.start_time, time_format),
             patient_name=apt.patient.full_name,
             visit_type=apt.visit_type or "in-clinic",
             visit_category=apt.visit_category,
@@ -269,6 +318,12 @@ def get_needs_attention(
     """Get items needing attention"""
     today = date.today()
     
+    # Get clinic settings for formatting
+    clinic_settings = db.query(ClinicSettings).filter(
+        ClinicSettings.clinic_id == current_user.clinic_id
+    ).first()
+    time_format = clinic_settings.time_format if clinic_settings else "12h"
+    
     # Get appointments needing attention
     query = db.query(Appointment).options(
         joinedload(Appointment.doctor),
@@ -298,7 +353,7 @@ def get_needs_attention(
                 type="unconfirmed",
                 patient_name=apt.patient.full_name,
                 patient_phone=apt.patient.phone,
-                time=apt.start_time.strftime("%I:%M %p"),
+                time=format_time(apt.start_time, time_format),
                 doctor=apt.doctor.name,
                 appointment_id=str(apt.id)
             ))
@@ -310,7 +365,7 @@ def get_needs_attention(
                 type="missing-intake",
                 patient_name=apt.patient.full_name,
                 patient_phone=apt.patient.phone,
-                time=apt.start_time.strftime("%I:%M %p"),
+                time=format_time(apt.start_time, time_format),
                 doctor=apt.doctor.name,
                 appointment_id=str(apt.id)
             ))
@@ -326,5 +381,149 @@ def get_needs_attention(
     return NeedsAttentionResponse(
         total=len(unique_items),
         items=unique_items
+    )
+
+
+@router.get("/admin/analytics", response_model=AdminDashboardAnalyticsResponse)
+def get_admin_dashboard_analytics(
+    current_user: User = Depends(require_admin),
+    db: Session = Depends(get_db)
+):
+    """Get analytics data for admin dashboard (charts and recent activity)"""
+    
+    # Get clinic settings for formatting
+    clinic_settings = db.query(ClinicSettings).filter(
+        ClinicSettings.clinic_id == current_user.clinic_id
+    ).first()
+    time_format = clinic_settings.time_format if clinic_settings else "12h"
+    
+    # Calculate weekly confirmation rate (last 7 days)
+    today = date.today()
+    
+    weekly_confirmation = []
+    days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+    
+    for i in range(7):
+        target_date = today - timedelta(days=6-i)
+        day_name = days[target_date.weekday()]
+        
+        # Get appointments for this day
+        day_appointments = db.query(Appointment).filter(
+            Appointment.clinic_id == current_user.clinic_id,
+            Appointment.date == target_date,
+            Appointment.status != "cancelled"
+        ).all()
+        
+        if day_appointments:
+            confirmed_count = sum(1 for apt in day_appointments if apt.status == "confirmed")
+            rate = (confirmed_count / len(day_appointments)) * 100
+        else:
+            rate = 0.0
+        
+        weekly_confirmation.append(WeeklyConfirmationDataPoint(day=day_name, rate=round(rate, 1)))
+    
+    # Calculate no-show trend (last 4 weeks)
+    no_show_trend = []
+    for i in range(4):
+        week_start = today - timedelta(weeks=4-i, days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        
+        no_shows = db.query(Appointment).filter(
+            Appointment.clinic_id == current_user.clinic_id,
+            Appointment.date >= week_start,
+            Appointment.date <= week_end,
+            Appointment.status == "no-show"
+        ).count()
+        
+        no_show_trend.append(NoShowTrendDataPoint(week=f'W{4-i}', noShows=no_shows))
+    
+    # Get recent activity (last 20 items from AutomationExecution and VoiceAILog)
+    recent_activity_items = []
+    
+    # Get recent automation executions
+    automation_executions = db.query(AutomationExecution).options(
+        joinedload(AutomationExecution.patient),
+        joinedload(AutomationExecution.appointment),
+        joinedload(AutomationExecution.rule)
+    ).filter(
+        AutomationExecution.clinic_id == current_user.clinic_id,
+        AutomationExecution.status == "success"
+    ).order_by(AutomationExecution.triggered_at.desc()).limit(10).all()
+    
+    for exec in automation_executions:
+        if exec.patient and exec.rule:
+            patient_name = exec.patient.full_name
+            action = ""
+            activity_type = "info"
+            
+            if exec.rule.rule_type == "confirmation":
+                action = "confirmed via automation"
+                activity_type = "success"
+            elif exec.rule.rule_type == "intake":
+                action = "intake form sent"
+                activity_type = "info"
+            elif exec.rule.rule_type == "reminder":
+                action = "reminder sent"
+                activity_type = "info"
+            else:
+                action = "automation executed"
+            
+            time_str = format_time(exec.triggered_at.time(), time_format) if exec.triggered_at else ""
+            recent_activity_items.append({
+                "timestamp": exec.triggered_at or datetime.min,
+                "item": RecentActivityItem(
+                    time=time_str,
+                    patient=patient_name,
+                    action=action,
+                    type=activity_type
+                )
+            })
+    
+    # Get recent voice AI calls
+    voice_calls = db.query(VoiceAILog).options(
+        joinedload(VoiceAILog.patient),
+        joinedload(VoiceAILog.appointment)
+    ).filter(
+        VoiceAILog.clinic_id == current_user.clinic_id,
+        VoiceAILog.status.in_(["completed", "failed", "escalated"])
+    ).order_by(VoiceAILog.created_at.desc()).limit(10).all()
+    
+    for call in voice_calls:
+        if call.patient:
+            patient_name = call.patient.full_name
+            action = ""
+            activity_type = "info"
+            
+            if call.outcome == "confirmed":
+                action = "confirmed via voice call"
+                activity_type = "success"
+            elif call.status == "failed":
+                action = "voice call failed"
+                activity_type = "warning"
+            elif call.escalated:
+                action = "escalated to staff"
+                activity_type = "warning"
+            else:
+                action = "voice call completed"
+            
+            time_str = format_time(call.created_at.time(), time_format) if call.created_at else ""
+            recent_activity_items.append({
+                "timestamp": call.created_at or datetime.min,
+                "item": RecentActivityItem(
+                    time=time_str,
+                    patient=patient_name,
+                    action=action,
+                    type=activity_type
+                )
+            })
+    
+    # Sort by timestamp (most recent first) and take top 20
+    recent_activity_items.sort(key=lambda x: x["timestamp"], reverse=True)
+    recent_activity = [item["item"] for item in recent_activity_items[:20]]
+    
+    return AdminDashboardAnalyticsResponse(
+        weekly_confirmation=weekly_confirmation,
+        no_show_trend=no_show_trend,
+        recent_activity=recent_activity
     )
 

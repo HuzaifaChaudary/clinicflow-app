@@ -5,7 +5,7 @@ from typing import Dict, Any
 import json
 
 from app.config import settings
-from app.schemas import WaitlistSubmission
+from app.schemas import WaitlistSubmission, ContactSubmission
 
 
 class GoogleSheetsService:
@@ -70,10 +70,15 @@ class GoogleSheetsService:
             "Email",
             "Phone",
             "Role",
+            "Owner Email",
             "Clinic Name",
             "Clinic Type",
             "Other Clinic Type",
             "Clinic Size",
+            "Number of Doctors",
+            "Number of Locations",
+            "Doctor Emails",
+            "Location Addresses",
             "Pain Points",
             "Current Setup",
             "Impact Level",
@@ -178,8 +183,11 @@ class GoogleSheetsService:
     def _get_role_label(self, value: str) -> str:
         """Convert role value to readable label"""
         labels = {
-            'owner': 'Owner of clinic',
-            'admin': 'Admin of a clinic'
+            'owner': 'Clinic Owner',
+            'admin': 'Administrative Assistant',
+            'practice-manager': 'Practice Manager',
+            'operations-manager': 'Operations Manager',
+            'cto': 'CTO / IT Director'
         }
         return labels.get(value, value)
     
@@ -215,10 +223,15 @@ class GoogleSheetsService:
                 submission.email,
                 phone_value,
                 self._get_role_label(submission.role),
+                submission.ownerEmail or "",
                 submission.clinicName,
                 self._get_clinic_type_label(submission.clinicType),
                 submission.otherClinicType or "",
                 self._get_clinic_size_label(submission.clinicSize),
+                submission.numberOfDoctors or "",
+                submission.numberOfLocations or "",
+                submission.doctorEmails or "",
+                submission.locationAddresses or "",
                 self._get_pain_points_labels(submission.painPoints),
                 self._get_current_setup_label(submission.currentSetup),
                 self._get_impact_level_label(submission.impactLevel),
@@ -236,6 +249,61 @@ class GoogleSheetsService:
             
         except Exception as e:
             print(f"Error adding waitlist submission: {e}")
+            raise
+
+    def _ensure_contact_headers(self, worksheet):
+        """Ensure the contact worksheet has the correct headers"""
+        headers = [
+            "Timestamp",
+            "Name",
+            "Email",
+            "Clinic Name",
+            "Role",
+            "Message"
+        ]
+        
+        try:
+            existing_headers = worksheet.row_values(1)
+            if not existing_headers or existing_headers != headers:
+                worksheet.update('A1', [headers])
+        except Exception:
+            worksheet.update('A1', [headers])
+
+    async def add_contact_submission(self, submission: ContactSubmission) -> bool:
+        """Add a new contact submission to Google Sheets"""
+        if not self.client or not self.spreadsheet:
+            raise Exception("Google Sheets is not configured. Please set up Google Sheets credentials.")
+        
+        try:
+            # Get or create the contact worksheet
+            try:
+                worksheet = self.spreadsheet.worksheet("Contact")
+            except gspread.WorksheetNotFound:
+                worksheet = self.spreadsheet.add_worksheet(title="Contact", rows=1000, cols=10)
+            
+            # Ensure headers exist
+            self._ensure_contact_headers(worksheet)
+            
+            # Format the data
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            
+            row_data = [
+                timestamp,
+                submission.name,
+                submission.email,
+                submission.clinicName,
+                self._get_role_label(submission.role),
+                submission.message or ""
+            ]
+            
+            # Append the row
+            worksheet.append_row(row_data, value_input_option='USER_ENTERED')
+            
+            print(f"Contact submission added for: {submission.email}")
+            return True
+            
+        except Exception as e:
+            print(f"Error adding contact submission: {e}")
             raise
 
 

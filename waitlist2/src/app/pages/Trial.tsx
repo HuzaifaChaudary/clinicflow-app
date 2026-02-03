@@ -21,6 +21,11 @@ export function Trial() {
     clinicName: '',
     email: '',
     phone: '',
+    ownerEmail: '',
+    numberOfDoctors: '',
+    numberOfLocations: '',
+    doctorEmails: '',
+    locationAddresses: '',
   });
 
   const [submitted, setSubmitted] = useState(false);
@@ -311,6 +316,79 @@ export function Trial() {
             </div>
           </div>
 
+          {/* Section 2.5: Clinic Details - Doctors and Locations */}
+          <div>
+            <label className="block mb-3 text-lg">
+              Tell us more about your clinic <span className="text-[var(--accent-mint)]">*</span>
+            </label>
+            <p className="text-sm text-[var(--foreground-muted)] mb-8">
+              This helps us understand your clinic's scale and setup.
+            </p>
+            
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block mb-2 text-sm text-[var(--foreground-muted)]">Number of doctors *</label>
+                  <select
+                    value={formData.numberOfDoctors}
+                    onChange={(e) => setFormData({ ...formData, numberOfDoctors: e.target.value })}
+                    className="w-full px-6 py-5 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl focus:border-[var(--accent-mint)] focus:shadow-[0_0_20px_rgba(94,234,212,0.2)] outline-none transition-all duration-300 backdrop-blur-xl text-lg"
+                    required
+                  >
+                    <option value="">Select</option>
+                    <option value="1">1 doctor</option>
+                    <option value="2-5">2-5 doctors</option>
+                    <option value="6-10">6-10 doctors</option>
+                    <option value="11-20">11-20 doctors</option>
+                    <option value="21-50">21-50 doctors</option>
+                    <option value="50+">50+ doctors</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block mb-2 text-sm text-[var(--foreground-muted)]">Number of locations *</label>
+                  <select
+                    value={formData.numberOfLocations}
+                    onChange={(e) => setFormData({ ...formData, numberOfLocations: e.target.value })}
+                    className="w-full px-6 py-5 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl focus:border-[var(--accent-mint)] focus:shadow-[0_0_20px_rgba(94,234,212,0.2)] outline-none transition-all duration-300 backdrop-blur-xl text-lg"
+                    required
+                  >
+                    <option value="">Select</option>
+                    <option value="1">1 location</option>
+                    <option value="2-3">2-3 locations</option>
+                    <option value="4-5">4-5 locations</option>
+                    <option value="6-10">6-10 locations</option>
+                    <option value="10+">10+ locations</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-sm text-[var(--foreground-muted)]">Doctor emails (optional)</label>
+                <textarea
+                  value={formData.doctorEmails}
+                  onChange={(e) => setFormData({ ...formData, doctorEmails: e.target.value })}
+                  className="w-full px-6 py-5 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl focus:border-[var(--accent-mint)] focus:shadow-[0_0_20px_rgba(94,234,212,0.2)] outline-none transition-all duration-300 backdrop-blur-xl text-lg resize-none"
+                  placeholder="Enter doctor emails, one per line"
+                  rows={3}
+                />
+                <p className="text-xs text-[var(--foreground-muted)] mt-2">
+                  We'll invite them to join when your clinic is set up.
+                </p>
+              </div>
+
+              <div>
+                <label className="block mb-2 text-sm text-[var(--foreground-muted)]">Location addresses (optional)</label>
+                <textarea
+                  value={formData.locationAddresses}
+                  onChange={(e) => setFormData({ ...formData, locationAddresses: e.target.value })}
+                  className="w-full px-6 py-5 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl focus:border-[var(--accent-mint)] focus:shadow-[0_0_20px_rgba(94,234,212,0.2)] outline-none transition-all duration-300 backdrop-blur-xl text-lg resize-none"
+                  placeholder="Enter location addresses, one per line"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
+
           {/* Section 3: Pain Points */}
           <div>
             <label className="block mb-3 text-lg">
@@ -548,10 +626,34 @@ export function Trial() {
                   required
                 >
                   <option value="" disabled>Your role *</option>
-                  <option value="owner">Owner of clinic</option>
-                  <option value="admin">Admin of a clinic</option>
+                  <option value="owner">Clinic Owner</option>
+                  <option value="admin">Administrative Assistant</option>
+                  <option value="practice-manager">Practice Manager</option>
+                  <option value="operations-manager">Operations Manager</option>
+                  <option value="cto">CTO / IT Director</option>
                 </select>
               </div>
+              
+              {/* Owner Email - shown when role is not owner */}
+              {formData.role && formData.role !== 'owner' && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  transition={{ duration: 0.3, ease: flowEasing }}
+                >
+                  <input
+                    type="email"
+                    value={formData.ownerEmail}
+                    onChange={(e) => setFormData({ ...formData, ownerEmail: e.target.value })}
+                    className="w-full px-6 py-5 bg-[var(--glass-bg)] border border-[var(--glass-border)] rounded-2xl focus:border-[var(--accent-mint)] focus:shadow-[0_0_20px_rgba(94,234,212,0.2)] outline-none transition-all duration-300 backdrop-blur-xl text-lg"
+                    placeholder="Clinic owner's email *"
+                    required
+                  />
+                  <p className="text-sm text-[var(--foreground-muted)] mt-2">
+                    We'll need the owner's approval to set up your clinic.
+                  </p>
+                </motion.div>
+              )}
               <div>
                 <input
                   type="tel"

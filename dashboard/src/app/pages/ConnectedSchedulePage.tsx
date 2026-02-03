@@ -1,11 +1,13 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Calendar, 
   ChevronLeft, 
-  ChevronRight, 
+  ChevronRight,
+  ChevronDown,
   Plus, 
   Filter,
   Loader2,
+  
   AlertCircle,
   Clock,
   User,
@@ -16,6 +18,7 @@ import { Card } from '../components/foundation/Card';
 import { Button } from '../components/foundation/Button';
 import { useSchedule, useDoctors } from '../hooks/useApi';
 import { appointments as appointmentsApi } from '../services/api';
+import { useClinicFormat } from '../hooks/useClinicFormat';
 
 interface ScheduleAppointment {
   id: string;
@@ -35,12 +38,28 @@ export function ConnectedSchedulePage() {
     new Date().toISOString().split('T')[0]
   );
   const [selectedDoctor, setSelectedDoctor] = useState<string>('all');
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
 
   // Fetch data from backend
   const { data: scheduleData, loading, error, refetch } = useSchedule(selectedDate);
-  const { data: doctorsData } = useDoctors();
+  const { data: doctorsData, loading: doctorsLoading, error: doctorsError } = useDoctors();
 
-  const doctors = doctorsData || [];
+  // Handle doctors data - API returns { items: [...], total: ... } or array
+  const doctors = Array.isArray(doctorsData) 
+    ? doctorsData 
+    : ((doctorsData as any)?.items || []);
+
+  // Debug: log doctors data
+  useEffect(() => {
+    console.log('[ConnectedSchedulePage] Doctors data:', { 
+      doctorsData, 
+      doctors, 
+      doctorsCount: doctors.length,
+      doctorsLoading,
+      doctorsError 
+    });
+  }, [doctorsData, doctors, doctorsLoading, doctorsError]);
 
   const handlePrevDay = () => {
     const date = new Date(selectedDate);
@@ -59,23 +78,22 @@ export function ConnectedSchedulePage() {
   };
 
   const handleConfirm = async (appointmentId: string) => {
+    setConfirmingId(appointmentId);
+    setConfirmError(null);
     try {
       await appointmentsApi.confirm(appointmentId);
-      refetch();
-    } catch (err) {
+      await refetch();
+      setConfirmingId(null);
+    } catch (err: any) {
       console.error('Failed to confirm:', err);
+      setConfirmError(err?.message || 'Failed to confirm appointment');
+      setConfirmingId(null);
+      // Clear error after 3 seconds
+      setTimeout(() => setConfirmError(null), 3000);
     }
   };
 
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
+  const { formatDateLong } = useClinicFormat();
 
   if (loading) {
     return (
@@ -107,10 +125,33 @@ export function ConnectedSchedulePage() {
     );
   }
 
+  // Transform backend response to match frontend structure
+  // Backend returns: { date: "...", doctors: [{ name: "...", appointments: [...] }] }
+  // Frontend expects: flat list of appointments with doctor name
+  const allAppointments: ScheduleAppointment[] = [];
+  if (scheduleData?.doctors) {
+    scheduleData.doctors.forEach((doctor: any) => {
+      if (doctor.appointments) {
+        doctor.appointments.forEach((apt: any) => {
+          allAppointments.push({
+            id: apt.id,
+            time: apt.time,
+            patient_name: apt.patient?.name || apt.patient_name || 'Unknown',
+            doctor: doctor.name,
+            doctor_id: doctor.id,
+            visit_type: apt.visitType || apt.visit_type || 'in-clinic',
+            status: {
+              confirmed: apt.status?.confirmed || false,
+              intake_complete: apt.status?.intakeComplete || apt.status?.intake_complete || false,
+            },
+          });
+        });
+      }
+    });
+  }
+
   // Group appointments by doctor
   const appointmentsByDoctor: Record<string, ScheduleAppointment[]> = {};
-  const allAppointments: ScheduleAppointment[] = scheduleData?.appointments || [];
-
   allAppointments.forEach((apt: ScheduleAppointment) => {
     if (!appointmentsByDoctor[apt.doctor]) {
       appointmentsByDoctor[apt.doctor] = [];
@@ -140,27 +181,33 @@ export function ConnectedSchedulePage() {
               Schedule
             </h1>
             <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {formatDate(selectedDate)}
+              {formatDateLong(selectedDate)}
             </p>
           </div>
 
           <div className="flex items-center gap-4">
             {/* Doctor Filter */}
-            <select
-              value={selectedDoctor}
-              onChange={(e) => setSelectedDoctor(e.target.value)}
-              className="px-4 py-2 rounded-lg border"
-              style={{
-                backgroundColor: 'var(--surface-card)',
-                borderColor: 'var(--border-default)',
-                color: 'var(--text-primary)'
-              }}
-            >
-              <option value="all">All Providers</option>
-              {doctors.map((doc: any) => (
-                <option key={doc.id} value={doc.name}>{doc.name}</option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedDoctor}
+                onChange={(e) => setSelectedDoctor(e.target.value)}
+                className="px-4 py-2 pr-10 rounded-xl border appearance-none cursor-pointer"
+                style={{
+                  backgroundColor: 'var(--surface-card)',
+                  borderColor: 'var(--border-default)',
+                  color: 'var(--text-primary)'
+                }}
+              >
+                <option value="all">All Providers</option>
+                {doctors.map((doc: any) => (
+                  <option key={doc.id} value={doc.name}>{doc.name}</option>
+                ))}
+              </select>
+              <ChevronDown 
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+                style={{ color: 'var(--text-secondary)' }}
+              />
+            </div>
 
             {/* Date Navigation */}
             <div className="flex items-center gap-2">
@@ -279,16 +326,26 @@ export function ConnectedSchedulePage() {
                                   </span>
                                 </div>
                                 {!apt.status.confirmed && (
-                                  <button
-                                    onClick={() => handleConfirm(apt.id)}
-                                    className="text-xs px-2 py-1 rounded"
-                                    style={{
-                                      backgroundColor: 'var(--accent-primary)',
-                                      color: 'white'
-                                    }}
-                                  >
-                                    Confirm
-                                  </button>
+                                  <div className="flex flex-col items-end gap-1">
+                                    <button
+                                      onClick={() => handleConfirm(apt.id)}
+                                      disabled={confirmingId === apt.id}
+                                      className="text-xs px-2 py-1 rounded disabled:opacity-50 disabled:cursor-not-allowed"
+                                      style={{
+                                        backgroundColor: confirmingId === apt.id 
+                                          ? 'var(--text-muted)' 
+                                          : 'var(--accent-primary)',
+                                        color: 'white'
+                                      }}
+                                    >
+                                      {confirmingId === apt.id ? 'Confirming...' : 'Confirm'}
+                                    </button>
+                                    {confirmError && confirmingId !== apt.id && (
+                                      <span className="text-xs" style={{ color: 'var(--status-error)' }}>
+                                        {confirmError}
+                                      </span>
+                                    )}
+                                  </div>
                                 )}
                               </div>
                               <div className="flex items-center gap-2 mt-1">

@@ -8,10 +8,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:5174", "http://localhost:3000", "http://127.0.0.1:5173", "http://127.0.0.1:5174"],
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -25,8 +26,9 @@ async def health_check():
 
 
 # Import and mount routers
-from app.api import auth, doctors, patients, appointments, schedule, intake, dashboard, owner
+from app.api import auth, doctors, patients, appointments, schedule, intake, dashboard, owner, invites, reminders
 
+# Mount routers - order matters for route resolution
 app.include_router(auth.router)
 app.include_router(doctors.router)
 app.include_router(patients.router)
@@ -35,4 +37,8 @@ app.include_router(schedule.router)
 app.include_router(intake.router)
 app.include_router(dashboard.router)
 app.include_router(owner.router)
+app.include_router(invites.router)
+app.include_router(reminders.router)
+
+
 

@@ -15,10 +15,12 @@ import {
 import { Card } from '../components/foundation/Card';
 import { Button } from '../components/foundation/Button';
 import { useVoiceAIStats, useVoiceAILogs } from '../hooks/useApi';
+import { useClinicFormat } from '../hooks/useClinicFormat';
 
 export function ConnectedVoiceAIPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [callTypeFilter, setCallTypeFilter] = useState<string>('all');
+  const { formatDateTime } = useClinicFormat();
 
   // Fetch data from backend
   const { data: statsData, loading: statsLoading, error: statsError, refetch: refetchStats } = useVoiceAIStats();
@@ -291,7 +293,7 @@ export function ConnectedVoiceAIPage() {
                           </span>
                         )}
                         <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                          {new Date(log.created_at).toLocaleString()}
+                          {formatDateTime(log.created_at)}
                         </span>
                       </div>
                     </div>

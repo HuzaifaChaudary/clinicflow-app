@@ -53,9 +53,13 @@ class Settings(BaseSettings):
     # Frontend URL (for email links)
     FRONTEND_URL: str = "http://localhost:5173"
     
+    # Redis (for Celery)
+    REDIS_URL: str = "redis://localhost:6379/0"
+    
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Ignore extra env vars like VITE_* which are for frontend
 
 
 settings = Settings()

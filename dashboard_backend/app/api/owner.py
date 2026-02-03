@@ -12,7 +12,7 @@ from app.models.owner import (
     OwnerMetrics, VoiceAILog, AutomationRule, 
     AutomationExecution, ClinicSettings, DoctorCapacity
 )
-from app.api.deps import get_current_user, require_owner
+from app.api.deps import get_current_user, require_owner, require_owner_admin_or_doctor
 from app.models.user import User
 from app.schemas.owner import (
     OwnerDashboardResponse, HeroMetric, NoShowByDoctor, NoShowByVisitType,
@@ -20,7 +20,7 @@ from app.schemas.owner import (
     AIPerformance, VoiceAILogResponse, VoiceAILogCreate, VoiceAILogUpdate,
     VoiceAIStatsResponse, VoiceAIStats, AutomationRuleResponse, AutomationRuleCreate,
     AutomationRuleUpdate, AutomationExecutionResponse, ClinicSettingsResponse,
-    ClinicSettingsUpdate, DoctorCapacityResponse, OwnerMetricsResponse
+    ClinicSettingsUpdate, DoctorCapacityResponse, OwnerMetricsResponse, TrendDataPoint
 )
 import uuid
 
@@ -109,8 +109,17 @@ def get_owner_dashboard(
     manual_tasks_avoided = calls_automated + forms_auto_completed
     hours_saved = (calls_automated * 5 + forms_auto_completed * 10) / 60  # 5 min per call, 10 min per form
     
-    # Get doctors for capacity
+    # Previous period admin efficiency for comparison
+    prev_calls = len([v for v in prev_voice_logs if v.status == "completed"])
+    prev_forms = len([a for a in prev_appointments if a.intake_status == "completed"])
+    
+    # Get doctors for capacity (needed for both current and previous period calculations)
     doctors = db.query(Doctor).filter(Doctor.clinic_id == current_user.clinic_id).all()
+    
+    # Previous period utilization
+    prev_total_slots = len(doctors) * 16 * 7
+    prev_total_booked = len([a for a in prev_appointments if a.status != "cancelled"])
+    prev_utilization = (prev_total_booked / prev_total_slots * 100) if prev_total_slots > 0 else 0
     
     # Calculate utilization per doctor
     doctor_capacity_list = []
@@ -164,7 +173,7 @@ def get_owner_dashboard(
             appointments=in_clinic_total
         ),
         NoShowByVisitType(
-            type="Virtual",
+            type="Video Call",
             rate=round((virtual_no_show / virtual_total * 100) if virtual_total > 0 else 0, 1),
             appointments=virtual_total
         )
@@ -252,18 +261,18 @@ def get_owner_dashboard(
             id="admin-hours-saved",
             label="Admin Hours Saved",
             value=f"{round(hours_saved, 1)} hrs",
-            change=18.0,
-            change_label="18% more efficient",
-            trend="up",
+            change=round(((hours_saved - (prev_calls * 5 + prev_forms * 10) / 60) / max((prev_calls * 5 + prev_forms * 10) / 60, 1)) * 100, 0) if prev_calls + prev_forms > 0 else 0.0,
+            change_label=f"{round(((hours_saved - (prev_calls * 5 + prev_forms * 10) / 60) / max((prev_calls * 5 + prev_forms * 10) / 60, 1)) * 100, 0)}% {'more' if hours_saved > (prev_calls * 5 + prev_forms * 10) / 60 else 'less'} efficient" if prev_calls + prev_forms > 0 else "0% change",
+            trend="up" if hours_saved >= (prev_calls * 5 + prev_forms * 10) / 60 else "down",
             good_direction="up"
         ),
         HeroMetric(
             id="clinic-utilization",
             label="Clinic Utilization",
             value=f"{round(clinic_utilization, 0)}%",
-            change=12.0,
-            change_label="12% increase",
-            trend="up",
+            change=round(clinic_utilization - prev_utilization, 0) if prev_utilization > 0 else 0.0,
+            change_label=f"{abs(round(clinic_utilization - prev_utilization, 0))}% {'increase' if clinic_utilization > prev_utilization else 'decrease'}" if prev_utilization > 0 else "0% change",
+            trend="up" if clinic_utilization >= prev_utilization else "down",
             good_direction="up"
         )
     ]
@@ -275,6 +284,73 @@ def get_owner_dashboard(
         "message": f"Clinicflow is recovering {recovered} appointments per week and saving ${round(cost_savings * 4):,}/month in admin costs"
     }
     
+    # Calculate historical trends (last 6 weeks for weekly view)
+    no_show_trend = []
+    appointments_recovered_trend = []
+    admin_hours_trend = []
+    clinic_utilization_trend = []
+    
+    if period == "week":
+        # Get weekly trends for last 6 weeks
+        for week_offset in range(5, -1, -1):
+            week_start = date_param - timedelta(days=7 * (week_offset + 1))
+            week_end = date_param - timedelta(days=7 * week_offset)
+            
+            week_appointments = db.query(Appointment).filter(
+                Appointment.clinic_id == current_user.clinic_id,
+                Appointment.date >= week_start,
+                Appointment.date < week_end
+            ).all()
+            
+            week_total = len([a for a in week_appointments if a.status != "cancelled"])
+            week_no_shows = len([a for a in week_appointments if a.status == "no-show"])
+            week_no_show_rate = (week_no_shows / week_total * 100) if week_total > 0 else 0
+            
+            week_voice_logs = db.query(VoiceAILog).filter(
+                VoiceAILog.clinic_id == current_user.clinic_id,
+                VoiceAILog.created_at >= datetime.combine(week_start, datetime.min.time()),
+                VoiceAILog.created_at < datetime.combine(week_end, datetime.max.time())
+            ).all()
+            week_recovered = len([v for v in week_voice_logs if v.outcome in ["confirmed", "rescheduled"]])
+            
+            week_calls = len([v for v in week_voice_logs if v.status == "completed"])
+            week_forms = len([a for a in week_appointments if a.intake_status == "completed"])
+            week_hours = (week_calls * 5 + week_forms * 10) / 60
+            
+            week_slots = len(doctors) * 16 * 7
+            week_booked = len([a for a in week_appointments if a.status != "cancelled"])
+            week_utilization = (week_booked / week_slots * 100) if week_slots > 0 else 0
+            
+            week_label = f"Week {6 - week_offset}" if week_offset > 0 else "Current Week"
+            
+            no_show_trend.append(TrendDataPoint(label=week_label, value=round(week_no_show_rate, 1)))
+            appointments_recovered_trend.append(TrendDataPoint(label=week_label, value=week_recovered))
+            admin_hours_trend.append(TrendDataPoint(label=week_label, value=round(week_hours, 1)))
+            clinic_utilization_trend.append(TrendDataPoint(label=week_label, value=round(week_utilization, 0)))
+    
+    # Calculate recovery sources breakdown
+    same_day_cancellations = len([v for v in voice_logs if v.call_type == "cancellation_fill" and v.outcome in ["confirmed", "rescheduled"]])
+    waitlist_outreach = len([v for v in voice_logs if v.call_type == "waitlist_outreach" and v.outcome in ["confirmed", "rescheduled"]])
+    unconfirmed_converted = len([v for v in voice_logs if v.call_type == "confirmation" and v.outcome == "confirmed"])
+    
+    recovery_sources = {
+        "same_day_cancellations": same_day_cancellations,
+        "waitlist_outreach": waitlist_outreach,
+        "unconfirmed_converted": unconfirmed_converted
+    }
+    
+    # Get pre-clinicflow baseline (from OwnerMetrics if available, or calculate from historical data)
+    # For now, use a calculated baseline from 30 days before clinicflow implementation
+    baseline_date = date_param - timedelta(days=60)
+    baseline_appointments = db.query(Appointment).filter(
+        Appointment.clinic_id == current_user.clinic_id,
+        Appointment.date >= baseline_date - timedelta(days=30),
+        Appointment.date < baseline_date
+    ).all()
+    baseline_total = len([a for a in baseline_appointments if a.status != "cancelled"])
+    baseline_no_shows = len([a for a in baseline_appointments if a.status == "no-show"])
+    pre_clinicflow_no_show_rate = (baseline_no_shows / baseline_total * 100) if baseline_total > 0 else 10.2
+    
     return OwnerDashboardResponse(
         date=date_param.isoformat(),
         hero_metrics=hero_metrics,
@@ -285,7 +361,13 @@ def get_owner_dashboard(
         admin_efficiency=admin_efficiency,
         doctor_capacity=doctor_capacity_list,
         ai_performance=ai_performance,
-        roi_summary=roi_summary
+        roi_summary=roi_summary,
+        no_show_trend=no_show_trend if period == "week" else None,
+        appointments_recovered_trend=appointments_recovered_trend if period == "week" else None,
+        admin_hours_trend=admin_hours_trend if period == "week" else None,
+        clinic_utilization_trend=clinic_utilization_trend if period == "week" else None,
+        recovery_sources=recovery_sources,
+        pre_clinicflow_no_show_rate=round(pre_clinicflow_no_show_rate, 1)
     )
 
 
@@ -720,7 +802,7 @@ def get_automation_executions(
 # Settings Endpoints
 @router.get("/settings", response_model=ClinicSettingsResponse)
 def get_clinic_settings(
-    current_user: User = Depends(require_owner_or_admin),
+    current_user: User = Depends(require_owner_admin_or_doctor),
     db: Session = Depends(get_db)
 ):
     """Get clinic settings"""
@@ -767,10 +849,13 @@ def get_clinic_settings(
 @router.put("/settings", response_model=ClinicSettingsResponse)
 def update_clinic_settings(
     settings_data: ClinicSettingsUpdate,
-    current_user: User = Depends(require_owner_or_admin),
+    current_user: User = Depends(require_owner_or_admin),  # Only owner/admin can update
     db: Session = Depends(get_db)
 ):
     """Update clinic settings"""
+    import logging
+    logger = logging.getLogger(__name__)
+    
     settings = db.query(ClinicSettings).filter(
         ClinicSettings.clinic_id == current_user.clinic_id
     ).first()
@@ -780,11 +865,31 @@ def update_clinic_settings(
         db.add(settings)
     
     update_data = settings_data.model_dump(exclude_unset=True)
+    logger.info(f"Updating clinic settings: {update_data}")
+    
+    # Log appointment settings specifically
+    if 'default_appointment_duration' in update_data:
+        logger.info(f"Setting default_appointment_duration to {update_data['default_appointment_duration']}")
+    if 'buffer_between_appointments' in update_data:
+        logger.info(f"Setting buffer_between_appointments to {update_data['buffer_between_appointments']}")
+    if 'max_appointments_per_day' in update_data:
+        logger.info(f"Setting max_appointments_per_day to {update_data['max_appointments_per_day']}")
+    
+    # Log general settings
+    if 'timezone' in update_data:
+        logger.info(f"Setting timezone to {update_data['timezone']}")
+    if 'time_format' in update_data:
+        logger.info(f"Setting time_format to {update_data['time_format']}")
+    if 'date_format' in update_data:
+        logger.info(f"Setting date_format to {update_data['date_format']}")
+    
     for field, value in update_data.items():
         setattr(settings, field, value)
     
     db.commit()
     db.refresh(settings)
+    
+    logger.info(f"Settings updated successfully. General: timezone={settings.timezone}, time_format={settings.time_format}, date_format={settings.date_format}")
     
     return ClinicSettingsResponse(
         id=str(settings.id),

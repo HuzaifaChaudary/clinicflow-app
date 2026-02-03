@@ -7,6 +7,7 @@ import { mockDoctors } from '../data/enhancedMockData';
 import { RescheduleModal } from '../components/modals/RescheduleModal';
 import { CancelAppointmentModal } from '../components/modals/CancelAppointmentModal';
 import { useRole } from '../context/RoleContext';
+import { useClinicFormat } from '../hooks/useClinicFormat';
 
 interface EnhancedSchedulePageProps {
   appointments: Appointment[];
@@ -29,6 +30,7 @@ export function EnhancedSchedulePage({
 }: EnhancedSchedulePageProps) {
   const { role, activeDoctorId } = useRole();
   const [selectedDate, setSelectedDate] = useState('2026-01-01');
+  const { formatDateLong } = useClinicFormat();
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [rescheduleAppointment, setRescheduleAppointment] = useState<Appointment | null>(null);
   const [cancelAppointment, setCancelAppointment] = useState<Appointment | null>(null);
@@ -139,12 +141,7 @@ export function EnhancedSchedulePage({
                 }}
               >
                 <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {new Date(selectedDate).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                  })}
+                  {formatDateLong(selectedDate)}
                 </p>
               </div>
               <button

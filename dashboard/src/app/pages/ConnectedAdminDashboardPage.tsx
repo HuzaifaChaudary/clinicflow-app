@@ -1,29 +1,12 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Users, AlertCircle, FileText, Phone, Clock, ChevronRight, TrendingUp, BarChart3, Loader2 } from 'lucide-react';
 import { Card } from '../components/foundation/Card';
 import { Button } from '../components/foundation/Button';
 import { StatusChip } from '../components/foundation/StatusChip';
 import { VoiceActivityPanel, generateMockVoiceCalls } from '../components/VoiceActivityPanel';
-import { useAdminDashboard, useNeedsAttention } from '../hooks/useApi';
+import { useAdminDashboard, useNeedsAttention, useAdminDashboardAnalytics } from '../hooks/useApi';
 import { appointments as appointmentsApi } from '../services/api';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-
-const weeklyConfirmationData = [
-  { day: 'Mon', rate: 85 },
-  { day: 'Tue', rate: 88 },
-  { day: 'Wed', rate: 92 },
-  { day: 'Thu', rate: 90 },
-  { day: 'Fri', rate: 87 },
-  { day: 'Sat', rate: 80 },
-  { day: 'Sun', rate: 75 },
-];
-
-const noShowTrendData = [
-  { week: 'W1', noShows: 3 },
-  { week: 'W2', noShows: 2 },
-  { week: 'W3', noShows: 4 },
-  { week: 'W4', noShows: 1 },
-];
 
 export function ConnectedAdminDashboardPage() {
   const [voicePanelOpen, setVoicePanelOpen] = useState(false);
@@ -34,6 +17,7 @@ export function ConnectedAdminDashboardPage() {
   // Fetch data from backend
   const { data: dashboardData, loading, error, refetch } = useAdminDashboard(selectedDate);
   const { data: needsAttentionData, refetch: refetchAttention } = useNeedsAttention(activeFilter);
+  const { data: analyticsData, loading: analyticsLoading } = useAdminDashboardAnalytics();
 
   const handleConfirm = async (id: string) => {
     try {
@@ -112,12 +96,10 @@ export function ConnectedAdminDashboardPage() {
     return true;
   });
 
-  const recentActivity = [
-    { time: '10:12 AM', patient: 'Sarah Martinez', action: 'confirmed via voice call', type: 'success' },
-    { time: '10:18 AM', patient: 'Thomas Lee', action: 'submitted intake form', type: 'info' },
-    { time: '10:24 AM', patient: 'David Kim', action: 'rescheduled automatically', type: 'info' },
-    { time: '10:31 AM', patient: 'Emily Johnson', action: 'needs confirmation', type: 'warning' },
-  ];
+  // Use dynamic data from backend, fallback to empty array
+  const weeklyConfirmationData = analyticsData?.weekly_confirmation || [];
+  const noShowTrendData = analyticsData?.no_show_trend || [];
+  const recentActivity = analyticsData?.recent_activity || [];
 
   return (
     <>
@@ -297,28 +279,34 @@ export function ConnectedAdminDashboardPage() {
                 Recent Activity
               </h2>
               <div className="space-y-3">
-                {recentActivity.map((activity, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <div 
-                      className="w-2 h-2 rounded-full mt-2"
-                      style={{ 
-                        backgroundColor: activity.type === 'success' 
-                          ? 'var(--status-success)' 
-                          : activity.type === 'warning' 
-                            ? 'var(--status-warning)' 
-                            : 'var(--accent-primary)' 
-                      }}
-                    />
-                    <div>
-                      <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
-                        <span className="font-medium">{activity.patient}</span> {activity.action}
-                      </p>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {activity.time}
-                      </p>
-                    </div>
+                {recentActivity.length === 0 ? (
+                  <div className="text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                    {analyticsLoading ? 'Loading activity...' : 'No recent activity'}
                   </div>
-                ))}
+                ) : (
+                  recentActivity.slice(0, 4).map((activity, index) => (
+                    <div key={index} className="flex items-start gap-3">
+                      <div 
+                        className="w-2 h-2 rounded-full mt-2"
+                        style={{ 
+                          backgroundColor: activity.type === 'success' 
+                            ? 'var(--status-success)' 
+                            : activity.type === 'warning' 
+                              ? 'var(--status-warning)' 
+                              : 'var(--accent-primary)' 
+                        }}
+                      />
+                      <div>
+                        <p className="text-sm" style={{ color: 'var(--text-primary)' }}>
+                          <span className="font-medium">{activity.patient}</span> {activity.action}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          {activity.time}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </Card>
           </div>
@@ -401,21 +389,31 @@ export function ConnectedAdminDashboardPage() {
               Weekly Confirmation Rate
             </h2>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={weeklyConfirmationData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" />
-                  <XAxis dataKey="day" stroke="var(--text-secondary)" />
-                  <YAxis stroke="var(--text-secondary)" />
-                  <Tooltip />
-                  <Line 
-                    type="monotone" 
-                    dataKey="rate" 
-                    stroke="var(--accent-primary)" 
-                    strokeWidth={2}
-                    dot={{ fill: 'var(--accent-primary)' }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent-primary)' }} />
+                </div>
+              ) : weeklyConfirmationData.length === 0 ? (
+                <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
+                  No data available
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={weeklyConfirmationData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" />
+                    <XAxis dataKey="day" stroke="var(--text-secondary)" />
+                    <YAxis stroke="var(--text-secondary)" />
+                    <Tooltip />
+                    <Line 
+                      type="monotone" 
+                      dataKey="rate" 
+                      stroke="var(--accent-primary)" 
+                      strokeWidth={2}
+                      dot={{ fill: 'var(--accent-primary)' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </Card>
 
@@ -424,15 +422,25 @@ export function ConnectedAdminDashboardPage() {
               No-Show Trend
             </h2>
             <div className="h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={noShowTrendData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" />
-                  <XAxis dataKey="week" stroke="var(--text-secondary)" />
-                  <YAxis stroke="var(--text-secondary)" />
-                  <Tooltip />
-                  <Bar dataKey="noShows" fill="var(--status-error)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {analyticsLoading ? (
+                <div className="flex items-center justify-center h-full">
+                  <Loader2 className="w-6 h-6 animate-spin" style={{ color: 'var(--accent-primary)' }} />
+                </div>
+              ) : noShowTrendData.length === 0 ? (
+                <div className="flex items-center justify-center h-full" style={{ color: 'var(--text-muted)' }}>
+                  No data available
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={noShowTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border-default)" />
+                    <XAxis dataKey="week" stroke="var(--text-secondary)" />
+                    <YAxis stroke="var(--text-secondary)" />
+                    <Tooltip />
+                    <Bar dataKey="noShows" fill="var(--status-error)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
             </div>
           </Card>
         </div>

@@ -17,7 +17,23 @@ class WaitlistSubmission(BaseModel):
     clinicName: str
     email: EmailStr
     phone: Optional[str] = ""
+    ownerEmail: Optional[str] = ""
+    numberOfDoctors: Optional[str] = ""
+    numberOfLocations: Optional[str] = ""
+    doctorEmails: Optional[str] = ""
+    locationAddresses: Optional[str] = ""
 
 class WaitlistResponse(BaseModel):
+    success: bool
+    message: str
+
+class ContactSubmission(BaseModel):
+    name: str
+    email: EmailStr
+    clinicName: str
+    role: str
+    message: Optional[str] = ""
+
+class ContactResponse(BaseModel):
     success: bool
     message: str

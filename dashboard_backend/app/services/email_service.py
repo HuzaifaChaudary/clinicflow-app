@@ -353,3 +353,93 @@ def send_cancellation_email(
     """
     
     return send_email(patient_email, subject, body_html, body_text)
+
+
+async def send_invite_email(
+    to_email: str,
+    inviter_name: str,
+    clinic_name: str,
+    role: str,
+    invite_token: str
+) -> Dict[str, Any]:
+    """Send an invite email to a new user"""
+    
+    frontend_url = settings.FRONTEND_URL or "http://localhost:5173"
+    invite_link = f"{frontend_url}/invite/{invite_token}"
+    
+    role_display = {
+        "admin": "Administrative Assistant",
+        "doctor": "Doctor"
+    }.get(role, role.title())
+    
+    subject = f"You've been invited to join {clinic_name} on ClinicFlow"
+    
+    body_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+            .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+            .header {{ background-color: #2563EB; color: white; padding: 30px; text-align: center; border-radius: 8px 8px 0 0; }}
+            .content {{ background-color: #f9f9f9; padding: 30px; border-radius: 0 0 8px 8px; }}
+            .button {{ display: inline-block; background-color: #2563EB; color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; margin: 20px 0; }}
+            .button:hover {{ background-color: #1E4ED8; }}
+            .details {{ background-color: white; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e5e7eb; }}
+            .footer {{ text-align: center; color: #666; font-size: 12px; margin-top: 20px; }}
+            .note {{ color: #666; font-size: 14px; margin-top: 20px; }}
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="header">
+                <h1>You're Invited!</h1>
+            </div>
+            <div class="content">
+                <p>Hi there,</p>
+                <p><strong>{inviter_name}</strong> has invited you to join <strong>{clinic_name}</strong> on ClinicFlow as a <strong>{role_display}</strong>.</p>
+                
+                <div class="details">
+                    <p><strong>Clinic:</strong> {clinic_name}</p>
+                    <p><strong>Your Role:</strong> {role_display}</p>
+                    <p><strong>Invited by:</strong> {inviter_name}</p>
+                </div>
+                
+                <p style="text-align: center;">
+                    <a href="{invite_link}" class="button">Accept Invitation</a>
+                </p>
+                
+                <p class="note">This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.</p>
+                
+                <p class="note">If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href="{invite_link}">{invite_link}</a></p>
+                
+                <div class="footer">
+                    <p>This email was sent by ClinicFlow on behalf of {clinic_name}</p>
+                </div>
+            </div>
+        </div>
+    </body>
+    </html>
+    """
+    
+    body_text = f"""
+    You're Invited!
+    
+    Hi there,
+    
+    {inviter_name} has invited you to join {clinic_name} on ClinicFlow as a {role_display}.
+    
+    Clinic: {clinic_name}
+    Your Role: {role_display}
+    Invited by: {inviter_name}
+    
+    Accept your invitation by visiting:
+    {invite_link}
+    
+    This invitation will expire in 7 days. If you didn't expect this invitation, you can safely ignore this email.
+    
+    - ClinicFlow Team
+    """
+    
+    return send_email(to_email, subject, body_html, body_text)

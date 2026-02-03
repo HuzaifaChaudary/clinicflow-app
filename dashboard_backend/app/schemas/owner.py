@@ -282,6 +282,11 @@ class AIPerformance(BaseModel):
     avg_resolution_time: str
 
 
+class TrendDataPoint(BaseModel):
+    label: str
+    value: float
+
+
 class OwnerDashboardResponse(BaseModel):
     date: str
     hero_metrics: List[HeroMetric]
@@ -293,6 +298,15 @@ class OwnerDashboardResponse(BaseModel):
     doctor_capacity: List[DoctorCapacitySummary]
     ai_performance: AIPerformance
     roi_summary: Dict[str, Any]
+    # Historical trend data
+    no_show_trend: Optional[List[TrendDataPoint]] = None
+    appointments_recovered_trend: Optional[List[TrendDataPoint]] = None
+    admin_hours_trend: Optional[List[TrendDataPoint]] = None
+    clinic_utilization_trend: Optional[List[TrendDataPoint]] = None
+    # Recovery sources breakdown
+    recovery_sources: Optional[Dict[str, int]] = None
+    # Pre-clinicflow baseline
+    pre_clinicflow_no_show_rate: Optional[float] = None
 
 
 # Voice AI Stats Response

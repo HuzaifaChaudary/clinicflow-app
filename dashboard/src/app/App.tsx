@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar, FileText, Users, Settings, LayoutDashboard, Bell, Phone } from 'lucide-react';
 import { CollapsibleSidebar } from './components/navigation/CollapsibleSidebar';
 import { ConnectedAdminDashboardPage } from './pages/ConnectedAdminDashboardPage';
@@ -10,14 +10,27 @@ import { IntakeAutomationPageEnhanced } from './pages/IntakeAutomationPageEnhanc
 import { ConnectedSettingsPage } from './pages/ConnectedSettingsPage';
 import { ConnectedDoctorDashboardPage } from './pages/ConnectedDoctorDashboardPage';
 import { ConnectedOwnerDashboard } from './pages/ConnectedOwnerDashboard';
+import { LoginPage } from './pages/LoginPage';
 import { SettingsProvider } from './context/SettingsContext';
 import { RoleProvider, useRole } from './context/RoleContext';
+import { isAuthenticated } from './services/api';
 
 type Page = 'dashboard' | 'schedule' | 'patients' | 'intake-forms' | 'automation' | 'voice-ai' | 'settings';
 
 function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [isLoggedIn, setIsLoggedIn] = useState(isAuthenticated());
   const { role } = useRole();
+
+  // Check auth status on mount
+  useEffect(() => {
+    setIsLoggedIn(isAuthenticated());
+  }, []);
+
+  // Show login page if not authenticated
+  if (!isLoggedIn) {
+    return <LoginPage onLoginSuccess={() => setIsLoggedIn(true)} />;
+  }
 
   // Role-based navigation items
   const getNavigationItems = () => {

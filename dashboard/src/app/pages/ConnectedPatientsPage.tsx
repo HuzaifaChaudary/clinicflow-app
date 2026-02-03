@@ -14,6 +14,7 @@ import { Card } from '../components/foundation/Card';
 import { Button } from '../components/foundation/Button';
 import { usePatients } from '../hooks/useApi';
 import { patients as patientsApi } from '../services/api';
+import { useClinicFormat } from '../hooks/useClinicFormat';
 
 interface Patient {
   id: string;
@@ -28,6 +29,7 @@ interface Patient {
 }
 
 export function ConnectedPatientsPage() {
+  const { formatDate } = useClinicFormat();
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
@@ -239,7 +241,7 @@ export function ConnectedPatientsPage() {
                     {selectedPatient.full_name}
                   </h2>
                   <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                    Patient since {new Date(selectedPatient.created_at).toLocaleDateString()}
+                    Patient since {formatDate(selectedPatient.created_at)}
                   </p>
                 </div>
               </div>
@@ -261,7 +263,7 @@ export function ConnectedPatientsPage() {
                   <div className="flex items-center gap-3">
                     <Calendar className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
                     <span style={{ color: 'var(--text-primary)' }}>
-                      DOB: {new Date(selectedPatient.date_of_birth).toLocaleDateString()}
+                      DOB: {formatDate(selectedPatient.date_of_birth)}
                     </span>
                   </div>
                 )}

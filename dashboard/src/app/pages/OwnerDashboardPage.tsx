@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   TrendingDown, 
   TrendingUp, 
@@ -57,19 +57,32 @@ export function OwnerDashboardPage({
   onReschedule,
   onCancel,
 }: OwnerDashboardPageProps) {
-  const { settings } = useSettings();
+  // Settings removed - not used in this component
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
   const [detailedView, setDetailedView] = useState<string | null>(null);
 
-  // Mock locations (would come from settings in real implementation)
+  // Debug: log when detailedView changes
+  useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OwnerDashboardPage.tsx:65',message:'detailedView state changed in useEffect',data:{newValue:detailedView,type:typeof detailedView,isNoShowRate:detailedView==='no-show-rate',isAppointmentsRecovered:detailedView==='appointments-recovered',isAdminHoursSaved:detailedView==='admin-hours-saved',isClinicUtilization:detailedView==='clinic-utilization'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    console.log('[OwnerDashboard] detailedView state changed to:', detailedView);
+    console.log('[OwnerDashboard] detailedView type:', typeof detailedView);
+    console.log('[OwnerDashboard] detailedView === "no-show-rate":', detailedView === 'no-show-rate');
+  }, [detailedView]);
+  
+  // Debug: log initial render
+  useEffect(() => {
+    console.log('[OwnerDashboard] Component mounted, initial detailedView:', detailedView);
+    console.log('[OwnerDashboard] heroMetrics count:', heroMetrics.length);
+  }, []);
+
+  // Locations - empty for now, should come from settings/backend
   const locations = [
     { id: 'all', name: 'All Locations' },
-    { id: 'loc1', name: 'Downtown Clinic' },
-    { id: 'loc2', name: 'Westside Clinic' },
-    { id: 'loc3', name: 'North Campus' },
   ];
 
-  // Hero metrics
+  // Default hero metrics - should be fetched from backend
   const heroMetrics: HeroMetric[] = [
     {
       id: 'no-show-rate',
@@ -112,64 +125,31 @@ export function OwnerDashboardPage({
       goodDirection: 'up',
     },
   ];
-
-  // No-show reduction data
-  const noShowByDoctor = [
-    { doctor: 'Dr. Sarah Chen', rate: 3.8, appointments: 142 },
-    { doctor: 'Dr. Michael Park', rate: 4.1, appointments: 128 },
-    { doctor: 'Dr. Jennifer Williams', rate: 5.2, appointments: 156 },
-    { doctor: 'Dr. David Rodriguez', rate: 3.9, appointments: 134 },
-    { doctor: 'Dr. Emily Thompson', rate: 4.6, appointments: 118 },
-  ];
-
-  const noShowByVisitType = [
-    { type: 'In-Clinic', rate: 3.2, appointments: 456 },
-    { type: 'Video Call', rate: 5.8, appointments: 222 },
-  ];
-
-  const noShowByDayOfWeek = [
-    { day: 'Monday', rate: 3.1 },
-    { day: 'Tuesday', rate: 3.8 },
-    { day: 'Wednesday', rate: 4.2 },
-    { day: 'Thursday', rate: 5.1 },
-    { day: 'Friday', rate: 6.3 },
-  ];
-
-  // Follow-up & retention data
+  const noShowByDoctor: any[] = [];
+  const noShowByVisitType: any[] = [];
+  const noShowByDayOfWeek: any[] = [];
   const followUpData = {
-    scheduled: 89,
-    completed: 76,
-    missed: 13,
-    completionRate: 85.4,
-    retentionImpact: '+23% patient return rate vs manual scheduling',
+    scheduled: 0,
+    completed: 0,
+    missed: 0,
+    completionRate: 0,
+    retentionImpact: 'N/A',
   };
-
-  // Admin efficiency data
   const adminEfficiency = {
-    callsAutomated: 342,
-    formsAutoCompleted: 198,
-    manualTasksAvoided: 156,
-    hoursPerWeek: 42.5,
-    costSavings: '$2,125',
-    costSavingsMonthly: '$9,180',
+    callsAutomated: 0,
+    formsAutoCompleted: 0,
+    manualTasksAvoided: 0,
+    hoursPerWeek: 0,
+    costSavings: '$0',
+    costSavingsMonthly: '$0',
   };
-
-  // Doctor capacity data
-  const doctorCapacity = [
-    { doctor: 'Dr. Sarah Chen', appointments: 142, utilization: 89, specialty: 'Family Medicine' },
-    { doctor: 'Dr. Michael Park', appointments: 128, utilization: 82, specialty: 'Internal Medicine' },
-    { doctor: 'Dr. Jennifer Williams', appointments: 156, utilization: 94, specialty: 'Pediatrics' },
-    { doctor: 'Dr. David Rodriguez', appointments: 134, utilization: 86, specialty: 'Cardiology' },
-    { doctor: 'Dr. Emily Thompson', appointments: 118, utilization: 78, specialty: 'Dermatology' },
-  ];
-
-  // AI performance data
+  const doctorCapacity: any[] = [];
   const aiPerformance = {
-    totalInteractions: 892,
-    confirmationsAchieved: 687,
-    escalationsToHumans: 43,
-    successRate: 77.0,
-    avgResolutionTime: '1m 24s',
+    totalInteractions: 0,
+    confirmationsAchieved: 0,
+    escalationsToHumans: 0,
+    successRate: 0,
+    avgResolutionTime: '0m 0s',
   };
 
   const isPositiveChange = (metric: HeroMetric) => {
@@ -177,6 +157,7 @@ export function OwnerDashboardPage({
   };
 
   return (
+    <>
     <div className="h-screen overflow-auto" style={{ backgroundColor: 'var(--surface-canvas)' }}>
       <div className="max-w-[1600px] mx-auto p-6 space-y-6">
         {/* Header */}
@@ -224,7 +205,24 @@ export function OwnerDashboardPage({
             return (
               <button
                 key={metric.id}
-                onClick={() => setDetailedView(metric.id)}
+                type="button"
+                onClick={(e) => {
+                  // #region agent log
+                  fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OwnerDashboardPage.tsx:209',message:'Card onClick handler called',data:{metricId:metric.id,currentDetailedView:detailedView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+                  // #endregion
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('[OwnerDashboard] Card clicked!');
+                  console.log('[OwnerDashboard] Metric ID:', metric.id);
+                  console.log('[OwnerDashboard] Current detailedView before update:', detailedView);
+                  console.log('[OwnerDashboard] Calling setDetailedView with:', metric.id);
+                  // #region agent log
+                  fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OwnerDashboardPage.tsx:217',message:'About to call setDetailedView',data:{newValue:metric.id,oldValue:detailedView},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+                  // #endregion
+                  setDetailedView(metric.id);
+                  console.log('[OwnerDashboard] setDetailedView called, checking state in next render...');
+                  console.log('[OwnerDashboard] After setDetailedView, detailedView will be:', metric.id);
+                }}
                 className="p-6 rounded-[18px] border text-left transition-all hover:shadow-lg group w-full"
                 style={{
                   backgroundColor: 'var(--surface-card)',
@@ -280,11 +278,19 @@ export function OwnerDashboardPage({
         {/* Two-Column Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* No-Show Reduction */}
-          <div
-            className="p-6 rounded-[18px] border"
+          <button
+            onClick={() => setDetailedView('no-show-rate')}
+            className="p-6 rounded-[18px] border text-left transition-all hover:shadow-lg w-full"
             style={{
               backgroundColor: 'var(--surface-card)',
               borderColor: 'var(--border-default)',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
             }}
           >
             <div className="flex items-center gap-3 mb-6">
@@ -399,7 +405,7 @@ export function OwnerDashboardPage({
                 ))}
               </div>
             </div>
-          </div>
+          </button>
 
           {/* Follow-Up & Retention */}
           <div
@@ -763,13 +769,24 @@ export function OwnerDashboardPage({
             At this rate, your investment pays for itself in operational efficiency alone
           </p>
         </div>
+        </div>
       </div>
 
-      {/* Insight Panels */}
+      {/* Insight Panels - rendered outside scrollable container */}
       {/* No-Show Rate Insight Panel */}
+      {(() => {
+        const isOpen = detailedView === 'no-show-rate';
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OwnerDashboardPage.tsx:768',message:'No-Show Rate panel render check',data:{isOpen:isOpen,detailedView:detailedView,comparison:detailedView==='no-show-rate'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        console.log('[OwnerDashboard] Rendering No-Show Rate panel, isOpen:', isOpen, 'detailedView:', detailedView);
+        return (
       <InsightPanel
-        isOpen={detailedView === 'no-show-rate'}
-        onClose={() => setDetailedView(null)}
+            isOpen={isOpen}
+            onClose={() => {
+              console.log('[OwnerDashboard] Closing No-Show Rate panel');
+              setDetailedView(null);
+            }}
         title="No-Show Reduction"
         subtitle="Clinic-wide trend and contributing factors"
       >
@@ -870,11 +887,20 @@ export function OwnerDashboardPage({
           </InsightSection>
         )}
       </InsightPanel>
+        );
+      })()}
 
       {/* Appointments Recovered Insight Panel */}
+      {(() => {
+        const isOpen = detailedView === 'appointments-recovered';
+        console.log('[OwnerDashboard] Rendering Appointments Recovered panel, isOpen:', isOpen, 'detailedView:', detailedView);
+        return (
       <InsightPanel
-        isOpen={detailedView === 'appointments-recovered'}
-        onClose={() => setDetailedView(null)}
+            isOpen={isOpen}
+            onClose={() => {
+              console.log('[OwnerDashboard] Closing Appointments Recovered panel');
+              setDetailedView(null);
+            }}
         title="Appointments Recovered by AI"
         subtitle="Recovered cancellations and no-response slots"
       >
@@ -978,11 +1004,23 @@ export function OwnerDashboardPage({
           </div>
         </InsightSection>
       </InsightPanel>
+        );
+      })()}
 
       {/* Admin Hours Saved Insight Panel */}
+      {(() => {
+        const isOpen = detailedView === 'admin-hours-saved';
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OwnerDashboardPage.tsx:999',message:'Admin Hours Saved panel render check',data:{isOpen:isOpen,detailedView:detailedView,comparison:detailedView==='admin-hours-saved'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        console.log('[OwnerDashboard] Rendering Admin Hours Saved panel, isOpen:', isOpen, 'detailedView:', detailedView);
+        return (
       <InsightPanel
-        isOpen={detailedView === 'admin-hours-saved'}
-        onClose={() => setDetailedView(null)}
+            isOpen={isOpen}
+            onClose={() => {
+              console.log('[OwnerDashboard] Closing Admin Hours Saved panel');
+              setDetailedView(null);
+            }}
         title="Admin Hours Saved"
         subtitle="Time saved through automation"
       >
@@ -1105,11 +1143,23 @@ export function OwnerDashboardPage({
           />
         </InsightSection>
       </InsightPanel>
+        );
+      })()}
 
       {/* Clinic Utilization Insight Panel */}
+      {(() => {
+        const isOpen = detailedView === 'clinic-utilization';
+        // #region agent log
+        fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'OwnerDashboardPage.tsx:1135',message:'Clinic Utilization panel render check',data:{isOpen:isOpen,detailedView:detailedView,comparison:detailedView==='clinic-utilization'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+        // #endregion
+        console.log('[OwnerDashboard] Rendering Clinic Utilization panel, isOpen:', isOpen, 'detailedView:', detailedView);
+        return (
       <InsightPanel
-        isOpen={detailedView === 'clinic-utilization'}
-        onClose={() => setDetailedView(null)}
+            isOpen={isOpen}
+            onClose={() => {
+              console.log('[OwnerDashboard] Closing Clinic Utilization panel');
+              setDetailedView(null);
+            }}
         title="Clinic Utilization"
         subtitle="Capacity usage across appointments"
       >
@@ -1135,9 +1185,21 @@ export function OwnerDashboardPage({
               <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
                 In-Clinic Utilization
               </p>
-              <p className="text-3xl font-semibold" style={{ color: 'var(--accent-primary)' }}>
+              <p className="text-3xl font-semibold mb-3" style={{ color: 'var(--accent-primary)' }}>
                 91%
               </p>
+              <div 
+                className="h-2 rounded-full"
+                style={{ backgroundColor: 'rgba(91, 141, 239, 0.2)' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{ 
+                    width: '91%',
+                    backgroundColor: 'var(--accent-primary)',
+                  }}
+                />
+              </div>
             </div>
             <div
               className="p-4 rounded-xl"
@@ -1146,19 +1208,32 @@ export function OwnerDashboardPage({
               <p className="text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
                 Video Utilization
               </p>
-              <p className="text-3xl font-semibold" style={{ color: 'var(--accent-primary)' }}>
+              <p className="text-3xl font-semibold mb-3" style={{ color: 'var(--accent-primary)' }}>
                 78%
               </p>
+              <div 
+                className="h-2 rounded-full"
+                style={{ backgroundColor: 'rgba(91, 141, 239, 0.2)' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{ 
+                    width: '78%',
+                    backgroundColor: 'var(--accent-primary)',
+                  }}
+                />
+              </div>
             </div>
           </div>
         </InsightSection>
 
         <InsightSection title="Missed Capacity Drivers">
-          <div className="space-y-3">
+          <div className="space-y-4">
             <div
-              className="p-4 rounded-xl flex items-center justify-between"
+              className="p-4 rounded-xl"
               style={{ backgroundColor: 'rgba(255, 149, 0, 0.08)' }}
             >
+              <div className="flex items-center justify-between mb-2">
               <div>
                 <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
                   No-Shows
@@ -1170,12 +1245,26 @@ export function OwnerDashboardPage({
               <span className="text-xl font-semibold" style={{ color: 'var(--status-warning)' }}>
                 4.2%
               </span>
+              </div>
+              <div 
+                className="h-2 rounded-full"
+                style={{ backgroundColor: 'rgba(255, 149, 0, 0.2)' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{ 
+                    width: '4.2%',
+                    backgroundColor: 'var(--status-warning)',
+                  }}
+                />
+              </div>
             </div>
 
             <div
-              className="p-4 rounded-xl flex items-center justify-between"
+              className="p-4 rounded-xl"
               style={{ backgroundColor: 'rgba(255, 149, 0, 0.08)' }}
             >
+              <div className="flex items-center justify-between mb-2">
               <div>
                 <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
                   Late Cancellations
@@ -1187,12 +1276,26 @@ export function OwnerDashboardPage({
               <span className="text-xl font-semibold" style={{ color: 'var(--status-warning)' }}>
                 3.8%
               </span>
+              </div>
+              <div 
+                className="h-2 rounded-full"
+                style={{ backgroundColor: 'rgba(255, 149, 0, 0.2)' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{ 
+                    width: '3.8%',
+                    backgroundColor: 'var(--status-warning)',
+                  }}
+                />
+              </div>
             </div>
 
             <div
-              className="p-4 rounded-xl flex items-center justify-between"
+              className="p-4 rounded-xl"
               style={{ backgroundColor: 'rgba(255, 149, 0, 0.08)' }}
             >
+              <div className="flex items-center justify-between mb-2">
               <div>
                 <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
                   Unfilled Gaps
@@ -1204,6 +1307,19 @@ export function OwnerDashboardPage({
               <span className="text-xl font-semibold" style={{ color: 'var(--status-warning)' }}>
                 5.0%
               </span>
+              </div>
+              <div 
+                className="h-2 rounded-full"
+                style={{ backgroundColor: 'rgba(255, 149, 0, 0.2)' }}
+              >
+                <div
+                  className="h-full rounded-full"
+                  style={{ 
+                    width: '5.0%',
+                    backgroundColor: 'var(--status-warning)',
+                  }}
+                />
+              </div>
             </div>
           </div>
         </InsightSection>
@@ -1219,6 +1335,8 @@ export function OwnerDashboardPage({
           </InfoCallout>
         </InsightSection>
       </InsightPanel>
-    </div>
+        );
+      })()}
+    </>
   );
 }

@@ -36,8 +36,8 @@ export function Pricing() {
         'Basic rescheduling workflows',
         'Email support'
       ],
-      cta: 'Join Waitlist',
-      link: '/trial'
+      cta: 'Contact Sales',
+      link: '/contact'
     },
     {
       name: 'Growth',
@@ -49,8 +49,8 @@ export function Pricing() {
         'Admin automation with tracking',
         'Priority support'
       ],
-      cta: 'Join Waitlist',
-      link: '/trial',
+      cta: 'Contact Sales',
+      link: '/contact',
       recommended: true
     },
     {
@@ -62,8 +62,8 @@ export function Pricing() {
         'Volume pricing',
         'Dedicated onboarding'
       ],
-      cta: 'Join Waitlist',
-      link: '/trial'
+      cta: 'Contact Sales',
+      link: '/contact'
     }
   ];
 
@@ -542,7 +542,7 @@ export function Pricing() {
 
               {/* CTA Block */}
               <div className="max-w-[720px] mx-auto p-10 rounded-3xl" style={{ backgroundColor: '#EAF1FF' }}>
-                <Link to="/trial">
+                <Link to="/contact">
                   <motion.button
                     className="w-full px-10 py-5 rounded-full text-lg mb-6"
                     style={{ 
@@ -561,7 +561,7 @@ export function Pricing() {
                       e.currentTarget.style.transform = 'translateY(0)';
                     }}
                   >
-                    Join Waitlist
+                    Contact Sales
                   </motion.button>
                 </Link>
               </div>

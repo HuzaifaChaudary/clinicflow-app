@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { 
   Users, 
   Clock, 
@@ -15,10 +15,12 @@ import { Card } from '../components/foundation/Card';
 import { Button } from '../components/foundation/Button';
 import { useDoctorDashboard } from '../hooks/useApi';
 import { appointments as appointmentsApi } from '../services/api';
+import { useClinicFormat } from '../hooks/useClinicFormat';
 
 export function ConnectedDoctorDashboardPage() {
   const [selectedDate, setSelectedDate] = useState<string | undefined>(undefined);
   const [expandedPatient, setExpandedPatient] = useState<string | null>(null);
+  const { formatDateLong } = useClinicFormat();
 
   // Fetch data from backend
   const { data: dashboardData, loading, error, refetch } = useDoctorDashboard(selectedDate);
@@ -81,12 +83,7 @@ export function ConnectedDoctorDashboardPage() {
             Good morning, {doctor.name}
           </h1>
           <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            {dashboardData?.date ? new Date(dashboardData.date).toLocaleDateString('en-US', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            }) : 'Today'}
+            {dashboardData?.date ? formatDateLong(dashboardData.date) : 'Today'}
           </p>
         </div>
       </div>

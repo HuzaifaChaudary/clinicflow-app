@@ -7,9 +7,11 @@ from app.database import get_db
 from app.models.doctor import Doctor
 from app.models.appointment import Appointment
 from app.models.patient import Patient
-from app.api.deps import get_current_user, require_admin, require_admin_or_doctor
+from app.models.owner import ClinicSettings
+from app.api.deps import get_current_user, require_admin, require_admin_or_doctor, require_owner_or_admin, require_owner_admin_or_doctor
 from app.models.user import User
 from app.services.scheduling_service import get_available_slots
+from app.utils.date_format import format_time
 from pydantic import BaseModel
 from typing import List, Dict, Any
 
@@ -51,15 +53,30 @@ class AvailableSlotsResponse(BaseModel):
 @router.get("/day", response_model=DayScheduleResponse)
 def get_day_schedule(
     date_param: Optional[date] = Query(None, alias="date"),
-    current_user: User = Depends(require_admin),
+    current_user: User = Depends(require_owner_admin_or_doctor),
     db: Session = Depends(get_db)
 ):
-    """Get day schedule for all doctors - admin only"""
+    """Get day schedule - doctors see only their own, admin/owner see all"""
     if date_param is None:
         date_param = date.today()
     
-    # Get all doctors in clinic
-    doctors = db.query(Doctor).filter(Doctor.clinic_id == current_user.clinic_id).all()
+    # Get clinic settings for formatting
+    clinic_settings = db.query(ClinicSettings).filter(
+        ClinicSettings.clinic_id == current_user.clinic_id
+    ).first()
+    time_format = clinic_settings.time_format if clinic_settings else "12h"
+    
+    # If doctor, only show their own schedule
+    if current_user.role == "doctor":
+        if not current_user.doctor_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Doctor profile not found"
+            )
+        doctors = db.query(Doctor).filter(Doctor.id == current_user.doctor_id).all()
+    else:
+        # Admin or owner can see all doctors
+        doctors = db.query(Doctor).filter(Doctor.clinic_id == current_user.clinic_id).all()
     
     doctor_schedules = []
     for doctor in doctors:
@@ -76,7 +93,7 @@ def get_day_schedule(
         for apt in appointments:
             appointment_infos.append(AppointmentInfo(
                 id=str(apt.id),
-                time=apt.start_time.strftime("%H:%M"),
+                time=format_time(apt.start_time, time_format),
                 duration=apt.duration or 30,
                 patient=PatientInfo(
                     id=str(apt.patient.id),
@@ -129,6 +146,12 @@ def get_doctor_day_schedule(
             detail="Access denied: You can only view your own schedule"
         )
     
+    # Get clinic settings for formatting
+    clinic_settings = db.query(ClinicSettings).filter(
+        ClinicSettings.clinic_id == current_user.clinic_id
+    ).first()
+    time_format = clinic_settings.time_format if clinic_settings else "12h"
+    
     # Get appointments
     appointments = db.query(Appointment).options(
         joinedload(Appointment.patient)
@@ -142,7 +165,7 @@ def get_doctor_day_schedule(
     for apt in appointments:
         appointment_infos.append(AppointmentInfo(
             id=str(apt.id),
-            time=apt.start_time.strftime("%H:%M"),
+            time=format_time(apt.start_time, time_format),
             duration=apt.duration or 30,
             patient=PatientInfo(
                 id=str(apt.patient.id),

@@ -13,6 +13,7 @@ from app.models.owner import (
     ClinicSettings,
     DoctorCapacity
 )
+from app.models.invite import Invite
 
 __all__ = [
     "Clinic",
@@ -29,5 +30,6 @@ __all__ = [
     "AutomationExecution",
     "ClinicSettings",
     "DoctorCapacity",
+    "Invite",
 ]
 

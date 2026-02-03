@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { dashboard, doctors, patients, appointments, schedule, intake, owner } from '../services/api';
 
 // Types for API responses
@@ -125,6 +125,31 @@ export interface OwnerDashboardData {
     monthly_cost_savings: number;
     message: string;
   };
+  // Historical trend data
+  no_show_trend?: Array<{
+    label: string;
+    value: number;
+  }>;
+  appointments_recovered_trend?: Array<{
+    label: string;
+    value: number;
+  }>;
+  admin_hours_trend?: Array<{
+    label: string;
+    value: number;
+  }>;
+  clinic_utilization_trend?: Array<{
+    label: string;
+    value: number;
+  }>;
+  // Recovery sources breakdown
+  recovery_sources?: {
+    same_day_cancellations: number;
+    waitlist_outreach: number;
+    unconfirmed_converted: number;
+  };
+  // Pre-clinicflow baseline
+  pre_clinicflow_no_show_rate?: number;
 }
 
 export interface VoiceAIStats {
@@ -184,12 +209,21 @@ function useApiCall<T>(
   const [error, setError] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:211',message:'refetch called',data:{deps:JSON.stringify(deps)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+    // #endregion
     setLoading(true);
     setError(null);
     try {
       const result = await apiCall();
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:216',message:'API call succeeded',data:{hasResult:!!result},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+      // #endregion
       setData(result);
     } catch (err: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:219',message:'API call failed',data:{error:err?.message||'Unknown error'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+      // #endregion
       setError(err.message || 'An error occurred');
     } finally {
       setLoading(false);
@@ -197,6 +231,9 @@ function useApiCall<T>(
   }, deps);
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:225',message:'useEffect triggered refetch',data:{deps:JSON.stringify(deps)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+    // #endregion
     refetch();
   }, [refetch]);
 
@@ -204,10 +241,34 @@ function useApiCall<T>(
 }
 
 // Admin Dashboard Hook
+export interface AdminDashboardAnalytics {
+  weekly_confirmation: Array<{
+    day: string;
+    rate: number;
+  }>;
+  no_show_trend: Array<{
+    week: string;
+    noShows: number;
+  }>;
+  recent_activity: Array<{
+    time: string;
+    patient: string;
+    action: string;
+    type: string;
+  }>;
+}
+
 export function useAdminDashboard(date?: string) {
   return useApiCall<AdminDashboardData>(
     () => dashboard.getAdminDashboard(date) as Promise<AdminDashboardData>,
     [date]
+  );
+}
+
+export function useAdminDashboardAnalytics() {
+  return useApiCall<AdminDashboardAnalytics>(
+    () => dashboard.getAdminDashboardAnalytics() as Promise<AdminDashboardAnalytics>,
+    []
   );
 }
 
@@ -221,10 +282,19 @@ export function useDoctorDashboard(date?: string) {
 
 // Owner Dashboard Hook
 export function useOwnerDashboard(date?: string, period?: 'week' | 'month' | 'quarter') {
-  return useApiCall<OwnerDashboardData>(
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'useApi.ts:260',message:'useOwnerDashboard called',data:{date:date,period:period},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch((err)=>{console.error('[DEBUG] Fetch failed:',err);});
+  }, [date, period]);
+  // #endregion
+  
+  // Use useMemo to ensure the apiCall function is recreated when date or period changes
+  const apiCall = useCallback(
     () => owner.getDashboard({ date, period }) as Promise<OwnerDashboardData>,
     [date, period]
   );
+  
+  return useApiCall<OwnerDashboardData>(apiCall, [date, period]);
 }
 
 // Doctors List Hook

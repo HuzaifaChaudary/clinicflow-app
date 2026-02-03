@@ -5,7 +5,7 @@ from uuid import UUID
 from app.database import get_db
 from app.models.doctor import Doctor
 from app.schemas.doctor import DoctorCreate, DoctorUpdate, DoctorResponse, DoctorList
-from app.api.deps import get_current_user, require_admin_or_doctor, require_admin
+from app.api.deps import get_current_user, require_admin_or_doctor, require_admin, require_owner_or_admin
 from app.models.user import User
 
 router = APIRouter(prefix="/api/doctors", tags=["doctors"])
@@ -15,10 +15,10 @@ router = APIRouter(prefix="/api/doctors", tags=["doctors"])
 def list_doctors(
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(require_admin_or_doctor),
+    current_user: User = Depends(require_owner_or_admin),
     db: Session = Depends(get_db)
 ):
-    """List all doctors in clinic"""
+    """List all doctors in clinic - owner or admin access"""
     doctors = db.query(Doctor).filter(Doctor.clinic_id == current_user.clinic_id).offset(skip).limit(limit).all()
     total = db.query(Doctor).filter(Doctor.clinic_id == current_user.clinic_id).count()
     

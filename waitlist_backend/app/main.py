@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 import os
 
 from app.config import settings
-from app.schemas import WaitlistSubmission, WaitlistResponse
+from app.schemas import WaitlistSubmission, WaitlistResponse, ContactSubmission, ContactResponse
 from app.services import get_google_sheets_service
 
 # Create FastAPI app (lifespan disabled for serverless via Mangum)
@@ -79,6 +79,40 @@ async def submit_waitlist(submission: WaitlistSubmission):
         )
     except Exception as e:
         print(f"Error processing waitlist submission: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to process submission: {str(e)}"
+        )
+
+
+@app.post("/api/contact", response_model=ContactResponse)
+async def submit_contact(submission: ContactSubmission):
+    """
+    Submit a contact form entry.
+    Saves the submission to Google Sheets with timestamp.
+    """
+    try:
+        # Initialize service on each request for serverless compatibility
+        sheets_service = get_google_sheets_service()
+        
+        # Check if Google Sheets is configured
+        if sheets_service.client is None or sheets_service.spreadsheet is None:
+            print(f"Warning: Contact submission received but Google Sheets not configured. Submission: {submission.email}")
+            return ContactResponse(
+                success=True,
+                message="Successfully received contact submission (Google Sheets not configured)"
+            )
+        
+        await sheets_service.add_contact_submission(submission)
+        
+        return ContactResponse(
+            success=True,
+            message="Successfully submitted contact form"
+        )
+    except Exception as e:
+        print(f"Error processing contact submission: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(

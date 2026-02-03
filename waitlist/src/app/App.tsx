@@ -10,6 +10,7 @@ import { Pricing } from './pages/Pricing';
 import { About } from './pages/About';
 import { Contact } from './pages/Contact';
 import { Trial } from './pages/Trial';
+import { Login } from './pages/Login';
 import { NotFound } from './pages/NotFound';
 import { PrivacyPolicy } from './pages/PrivacyPolicy';
 import { TermsOfService } from './pages/TermsOfService';
@@ -40,6 +41,7 @@ function App() {
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/trial" element={<Trial />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route path="/terms-of-service" element={<TermsOfService />} />
           <Route path="/demo/infinite-grid" element={<InfiniteGridDemo />} />

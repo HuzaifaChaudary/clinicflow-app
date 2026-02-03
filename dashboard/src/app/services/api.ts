@@ -5,6 +5,9 @@
 
 // @ts-ignore - Vite env
 const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000/api';
+// #region agent log
+fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:7',message:'API_BASE_URL initialized',data:{apiBaseUrl:API_BASE_URL},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+// #endregion
 
 // Token management
 const TOKEN_KEY = 'clinicflow_auth_token';
@@ -40,11 +43,22 @@ async function apiRequest<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
   
+  const url = `${API_BASE_URL}${endpoint}`;
+  console.log(`API Request: ${options.method || 'GET'} ${url}`);
+  // #region agent log
+  fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:43',message:'API request initiated',data:{method:options.method||'GET',url:url,endpoint:endpoint,hasToken:!!token},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,B,C'})}).catch(()=>{});
+  // #endregion
+  
   // Merge with any existing headers
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  const response = await fetch(url, {
     ...options,
     headers,
   });
+  
+  console.log(`API Response: ${response.status} ${response.statusText}`);
+  // #region agent log
+  fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:52',message:'API response received',data:{status:response.status,statusText:response.statusText,url:url,ok:response.ok},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,D,E,F'})}).catch(()=>{});
+  // #endregion
   
   // Handle 401 - unauthorized
   if (response.status === 401) {
@@ -54,8 +68,22 @@ async function apiRequest<T>(
   }
   
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: 'An error occurred' }));
-    throw new Error(error.detail || `HTTP error! status: ${response.status}`);
+    let errorMessage = `HTTP error! status: ${response.status}`;
+    try {
+      const error = await response.json();
+      errorMessage = error.detail || error.message || errorMessage;
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:64',message:'API error response parsed',data:{status:response.status,errorMessage:errorMessage,errorDetail:error.detail,errorObj:error,url:url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,D'})}).catch(()=>{});
+      // #endregion
+    } catch {
+      // If response is not JSON, use status text
+      errorMessage = response.statusText || errorMessage;
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:68',message:'API error response not JSON',data:{status:response.status,errorMessage:errorMessage,statusText:response.statusText,url:url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,D'})}).catch(()=>{});
+      // #endregion
+    }
+    console.error(`API Error: ${errorMessage}`);
+    throw new Error(errorMessage);
   }
   
   return response.json();
@@ -64,6 +92,9 @@ async function apiRequest<T>(
 // Auth endpoints
 export const auth = {
   async login(email: string, password: string) {
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:66',message:'Login request starting',data:{email:email,hasPassword:!!password},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     const data = await apiRequest<{ access_token: string; token_type: string }>(
       '/auth/login',
       {
@@ -71,7 +102,14 @@ export const auth = {
         body: JSON.stringify({ email, password }),
       }
     );
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:74',message:'Login response received',data:{hasToken:!!data.access_token,tokenType:data.token_type},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     setToken(data.access_token);
+    // #region agent log
+    const storedToken = getToken();
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:77',message:'Token stored after login',data:{tokenStored:!!storedToken,tokenLength:storedToken?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
     return data;
   },
   
@@ -124,7 +162,22 @@ export const auth = {
   },
   
   async getCurrentUser() {
-    return apiRequest('/auth/me');
+    // #region agent log
+    const tokenBefore = getToken();
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:127',message:'getCurrentUser called',data:{hasToken:!!tokenBefore,tokenLength:tokenBefore?.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A,C'})}).catch(()=>{});
+    // #endregion
+    try {
+      const result = await apiRequest('/auth/me');
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:131',message:'getCurrentUser success',data:{hasResult:!!result,resultKeys:result?Object.keys(result):[]},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      return result;
+    } catch (err) {
+      // #region agent log
+      fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:135',message:'getCurrentUser error',data:{errorMessage:err instanceof Error?err.message:String(err)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+      // #endregion
+      throw err;
+    }
   },
 };
 
@@ -133,6 +186,10 @@ export const dashboard = {
   async getAdminDashboard(date?: string) {
     const params = date ? `?date=${date}` : '';
     return apiRequest(`/dashboard/admin${params}`);
+  },
+  
+  async getAdminDashboardAnalytics() {
+    return apiRequest(`/dashboard/admin/analytics`);
   },
   
   async getDoctorDashboard(date?: string) {
@@ -308,10 +365,26 @@ export const intake = {
   },
 };
 
+// Helper to filter out undefined values from params
+function cleanParams(params?: Record<string, any>): Record<string, string> | undefined {
+  if (!params) return undefined;
+  const cleaned: Record<string, string> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== 'undefined') {
+      cleaned[key] = String(value);
+    }
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
 // Owner endpoints
 export const owner = {
   async getDashboard(params?: { date?: string; period?: 'week' | 'month' | 'quarter' }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    const cleaned = cleanParams(params);
+    const query = cleaned ? `?${new URLSearchParams(cleaned)}` : '';
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:378',message:'owner.getDashboard called',data:{params:JSON.stringify(params),cleaned:JSON.stringify(cleaned),query:query},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return apiRequest(`/owner/dashboard${query}`);
   },
   
@@ -324,12 +397,14 @@ export const owner = {
     date_from?: string;
     date_to?: string;
   }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    const cleaned = cleanParams(params);
+    const query = cleaned ? `?${new URLSearchParams(cleaned)}` : '';
     return apiRequest(`/owner/voice-ai/logs${query}`);
   },
   
   async getVoiceAIStats(params?: { date_from?: string; date_to?: string }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    const cleaned = cleanParams(params);
+    const query = cleaned ? `?${new URLSearchParams(cleaned)}` : '';
     return apiRequest(`/owner/voice-ai/stats${query}`);
   },
   
@@ -349,7 +424,8 @@ export const owner = {
   
   // Automation Rules
   async getAutomationRules(params?: { rule_type?: string; enabled?: boolean }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    const cleaned = cleanParams(params);
+    const query = cleaned ? `?${new URLSearchParams(cleaned)}` : '';
     return apiRequest(`/owner/automation/rules${query}`);
   },
   
@@ -378,7 +454,8 @@ export const owner = {
   },
   
   async getAutomationExecutions(params?: { rule_id?: string; status?: string; skip?: number; limit?: number }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    const cleaned = cleanParams(params);
+    const query = cleaned ? `?${new URLSearchParams(cleaned)}` : '';
     return apiRequest(`/owner/automation/executions${query}`);
   },
   
@@ -388,6 +465,9 @@ export const owner = {
   },
   
   async updateSettings(data: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7245/ingest/3da94f36-ebb1-4a32-99ae-bf2f3f2b64be',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api.ts:463',message:'owner.updateSettings called',data:{hasDefaultDuration:!!data.default_appointment_duration,hasBuffer:!!data.buffer_between_appointments,hasMaxAppointments:!!data.max_appointments_per_day,defaultDuration:data.default_appointment_duration,buffer:data.buffer_between_appointments,maxAppointments:data.max_appointments_per_day},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
     return apiRequest('/owner/settings', {
       method: 'PUT',
       body: JSON.stringify(data),
@@ -396,14 +476,66 @@ export const owner = {
   
   // Metrics
   async getMetrics(params?: { date_from?: string; date_to?: string }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    const cleaned = cleanParams(params);
+    const query = cleaned ? `?${new URLSearchParams(cleaned)}` : '';
     return apiRequest(`/owner/metrics${query}`);
   },
   
   // Capacity
   async getCapacity(params?: { date?: string; doctor_id?: string }) {
-    const query = params ? `?${new URLSearchParams(params as any)}` : '';
+    const cleaned = cleanParams(params);
+    const query = cleaned ? `?${new URLSearchParams(cleaned)}` : '';
     return apiRequest(`/owner/capacity${query}`);
+  },
+};
+
+// Invite endpoints
+export const invites = {
+  async getLimits() {
+    return apiRequest('/invites/limits');
+  },
+  
+  async list(params?: { status?: string; role?: string; skip?: number; limit?: number }) {
+    const cleaned = cleanParams(params);
+    const query = cleaned ? `?${new URLSearchParams(cleaned)}` : '';
+    return apiRequest(`/invites${query}`);
+  },
+  
+  async create(data: { email: string; role: string }) {
+    return apiRequest('/invites', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  async createBulk(data: { emails: string[]; role: string }) {
+    return apiRequest('/invites/bulk', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  
+  async cancel(inviteId: string) {
+    return apiRequest(`/invites/${inviteId}`, {
+      method: 'DELETE',
+    });
+  },
+  
+  async resend(inviteId: string) {
+    return apiRequest(`/invites/${inviteId}/resend`, {
+      method: 'POST',
+    });
+  },
+  
+  async verify(token: string) {
+    return apiRequest(`/invites/verify/${token}`);
+  },
+  
+  async accept(token: string, data: { name: string; password: string }) {
+    return apiRequest(`/invites/accept/${token}`, {
+      method: 'POST',
+      body: JSON.stringify({ token, ...data }),
+    });
   },
 };
 
