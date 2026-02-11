@@ -126,7 +126,7 @@ function App() {
 
             <div className="mt-16 pt-8 border-t border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4">
               <p className="text-gray-400 text-sm">
-                © 2025 Axis. All rights reserved.
+                © 2026 Axis. All rights reserved.
               </p>
               <div className="flex gap-8 text-sm text-gray-400">
                 <a href="/privacy-policy" className="hover:text-white transition-colors">

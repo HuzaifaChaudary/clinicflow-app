@@ -125,7 +125,7 @@ function App() {
 
             <div className="mt-16 pt-8 border-t border-[var(--glass-border)] flex flex-col md:flex-row justify-between items-center gap-4">
               <p className="text-[var(--foreground-muted)] text-sm">
-                © 2025 AXIS. All rights reserved.
+                © 2026 AXIS. All rights reserved.
               </p>
               <div className="flex gap-8 text-sm text-[var(--foreground-muted)]">
                 <a href="/privacy-policy" className="hover:text-[var(--accent-primary)] transition-colors">

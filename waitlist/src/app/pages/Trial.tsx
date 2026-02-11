@@ -130,7 +130,7 @@ export function Trial() {
     }
     
     try {
-      const response = await fetch('http://localhost:8001/api/waitlist', {
+      const response = await fetch('http://localhost:8000/api/waitlist', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

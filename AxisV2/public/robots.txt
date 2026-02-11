@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /trial
+Disallow: /login
+Disallow: /demo/
+Disallow: /flow-blueprint
+
+Sitemap: https://useaxis.app/sitemap.xml
