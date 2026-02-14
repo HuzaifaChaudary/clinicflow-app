@@ -54,7 +54,7 @@ async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
         # Connect to OpenAI Realtime API
         openai_ws = await websockets.connect(
             OPENAI_REALTIME_URL,
-            additional_headers={
+            extra_headers={
                 "Authorization": f"Bearer {openai_api_key}",
                 "OpenAI-Beta": "realtime=v1",
             },
@@ -89,6 +89,23 @@ async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
         }
         await openai_ws.send(json.dumps(session_config))
         logger.info("OpenAI session configured with submit_waitlist tool")
+
+        # Wait for session.updated before triggering initial greeting
+        while True:
+            init_msg = await openai_ws.recv()
+            init_data = json.loads(init_msg)
+            init_type = init_data.get("type", "")
+            logger.info(f"OpenAI init event: {init_type}")
+            if init_type == "session.updated":
+                break
+            if init_type == "error":
+                logger.error(f"OpenAI session error: {init_data}")
+                await ws.close(code=1011, reason="OpenAI session error")
+                return
+
+        # Trigger Ava's initial greeting
+        await openai_ws.send(json.dumps({"type": "response.create"}))
+        logger.info("Triggered initial Ava greeting via response.create")
 
         # Run both directions concurrently
         await asyncio.gather(
@@ -166,6 +183,12 @@ async def _openai_to_twilio(twilio_ws: WebSocket, openai_ws, state: _SessionStat
 
             elif event_type == "session.updated":
                 logger.info("OpenAI Realtime session updated")
+
+            elif event_type == "response.created":
+                logger.info("OpenAI response started generating")
+
+            elif event_type == "response.done":
+                logger.info("OpenAI response complete")
 
             elif event_type == "response.audio.delta":
                 # Forward audio chunk to Twilio

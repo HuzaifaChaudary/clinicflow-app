@@ -1,134 +1,135 @@
 """
 Waitlist Submission Helper
-Posts collected intake data to the existing /api/waitlist endpoint on the main backend.
-After successful submission, sends a follow-up SMS via Twilio with a Calendly booking link.
-Used by both voice and SMS handlers after Ava collects all 9 questions.
+Writes collected caller data directly to Google Sheets.
+Used by the voice handler after Ava collects name, email, role, clinic name, and preferred time.
 """
 
 import os
 import logging
-import httpx
-from twilio.rest import Client as TwilioClient
+from datetime import datetime
 
 logger = logging.getLogger("ava.waitlist")
 
-# Default: main backend on port 8000. Override via env var if deployed elsewhere.
-WAITLIST_API_URL = os.getenv("WAITLIST_API_URL", "http://localhost:8000/api/waitlist")
-
-# Calendly booking link
-CALENDLY_URL = os.getenv("CALENDLY_URL", "https://calendly.com/axis-founders/15min")
+# Google Sheets config
+_sheets_client = None
 
 
-def _get_twilio_client():
-    """Get Twilio client. Returns None if not configured."""
-    sid = os.getenv("TWILIO_ACCOUNT_SID", "")
-    token = os.getenv("TWILIO_AUTH_TOKEN", "")
-    if sid and token:
-        return TwilioClient(sid, token)
-    return None
+def _get_sheets_client():
+    """Lazy-init Google Sheets client. Returns (client, spreadsheet) or (None, None)."""
+    global _sheets_client
+    if _sheets_client is not None:
+        return _sheets_client
 
+    spreadsheet_id = os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID", "")
+    service_email = os.getenv("GOOGLE_SERVICE_ACCOUNT_EMAIL", "")
+    private_key_raw = os.getenv("GOOGLE_PRIVATE_KEY", "")
+    project_id = os.getenv("GOOGLE_PROJECT_ID", "")
 
-def _get_twilio_sms_number() -> str:
-    """Get the Twilio number used for outbound SMS."""
-    return os.getenv("TWILIO_SMS_NUMBER", "")
-
-
-async def send_calendly_sms(phone: str, full_name: str = ""):
-    """
-    Send a follow-up SMS with Calendly link after intake is complete.
-
-    Args:
-        phone: Recipient phone number (E.164 format)
-        full_name: User's name for personalization
-    """
-    if not phone:
-        logger.warning("No phone number provided, skipping Calendly SMS")
-        return
-
-    twilio_client = _get_twilio_client()
-    from_number = _get_twilio_sms_number()
-
-    if not twilio_client or not from_number:
-        logger.warning("Twilio not configured, skipping Calendly SMS")
-        return
-
-    first_name = full_name.split()[0] if full_name else "there"
-
-    sms_body = (
-        f"Hi {first_name}! This is Axis Health.\n\n"
-        f"Thanks for sharing your clinic details with Ava. "
-        f"As an early adopter, you'll get 3 months free access to the Axis dashboard.\n\n"
-        f"Book your walkthrough here — our team will show you how the dashboard solves your specific pain points:\n"
-        f"{CALENDLY_URL}\n\n"
-        f"Talk soon!"
-    )
+    if not all([spreadsheet_id, service_email, private_key_raw, project_id]):
+        logger.warning("Google Sheets credentials not fully configured")
+        _sheets_client = (None, None)
+        return _sheets_client
 
     try:
-        twilio_client.messages.create(
-            body=sms_body,
-            from_=from_number,
-            to=phone,
+        import gspread
+        from google.oauth2.service_account import Credentials
+
+        private_key = private_key_raw.replace("\\n", "\n")
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+        creds = Credentials.from_service_account_info(
+            {
+                "type": "service_account",
+                "project_id": project_id,
+                "private_key": private_key,
+                "client_email": service_email,
+                "token_uri": "https://oauth2.googleapis.com/token",
+            },
+            scopes=scopes,
         )
-        logger.info(f"Calendly SMS sent to {phone}")
+        client = gspread.authorize(creds)
+        spreadsheet = client.open_by_key(spreadsheet_id)
+        _sheets_client = (client, spreadsheet)
+        logger.info("Google Sheets connected successfully")
     except Exception as e:
-        logger.error(f"Failed to send Calendly SMS to {phone}: {e}", exc_info=True)
+        logger.error(f"Failed to init Google Sheets: {e}", exc_info=True)
+        _sheets_client = (None, None)
+
+    return _sheets_client
+
+
+WAITLIST_HEADERS = [
+    "Timestamp",
+    "Full Name",
+    "Email",
+    "Phone",
+    "Role",
+    "Clinic Name",
+    "Preferred Call Time",
+    "Source",
+]
 
 
 async def submit_to_waitlist(data: dict, phone: str = "") -> bool:
     """
-    Submit intake data to the waitlist API, then send a follow-up SMS with Calendly link.
+    Write caller data directly to the 'Ava Calls' sheet in Google Sheets.
 
     Args:
-        data: Dict with keys matching the waitlist API schema:
-              fullName, role, clinicName, email, clinicType, otherClinicType,
-              numberOfDoctors, numberOfLocations, painPoints, currentSetup
+        data: Dict with keys: fullName, email, role, clinicName, preferredTime
         phone: Caller's phone number (from Twilio)
 
     Returns:
-        True if submission succeeded, False otherwise.
+        True if write succeeded, False otherwise.
     """
-    # Map the data to the waitlist API's expected format
-    payload = {
-        "fullName": data.get("fullName", ""),
-        "email": data.get("email", ""),
-        "phone": phone,
-        "role": data.get("role", ""),
-        "ownerEmail": data.get("email", ""),
-        "clinicName": data.get("clinicName", ""),
-        "clinicType": data.get("clinicType", ""),
-        "otherClinicType": data.get("otherClinicType", ""),
-        "clinicSize": "",
-        "numberOfDoctors": data.get("numberOfDoctors", ""),
-        "numberOfLocations": data.get("numberOfLocations", ""),
-        "doctorEmails": "",
-        "locationAddresses": "",
-        "painPoints": data.get("painPoints", []),
-        "currentSetup": data.get("currentSetup", ""),
-        "impactLevel": "",
-        "willingnessToPay": "",
-        "priceRange": "",
-        "solutionWins": [],
-        "otherWish": "",
-    }
+    full_name = data.get("fullName", "")
+    email = data.get("email", "")
+    role = data.get("role", "")
+    clinic_name = data.get("clinicName", "")
+    preferred_time = data.get("preferredTime", "")
 
-    logger.info(f"Submitting waitlist data for {payload['fullName']} ({payload['email']})")
+    logger.info(f"Submitting waitlist: {full_name} ({email}), clinic={clinic_name}, time={preferred_time}")
+
+    _, spreadsheet = _get_sheets_client()
+    if spreadsheet is None:
+        logger.error("Google Sheets not available — cannot save submission")
+        return False
 
     try:
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.post(WAITLIST_API_URL, json=payload)
-            result = resp.json()
+        import gspread
 
-            if result.get("success"):
-                logger.info(f"Waitlist submission successful for {payload['email']}")
+        try:
+            worksheet = spreadsheet.worksheet("Ava Calls")
+        except gspread.WorksheetNotFound:
+            worksheet = spreadsheet.add_worksheet(title="Ava Calls", rows=1000, cols=10)
 
-                # Send follow-up SMS with Calendly link
-                await send_calendly_sms(phone, data.get("fullName", ""))
+        # Ensure headers
+        try:
+            existing = worksheet.row_values(1)
+            if not existing or existing != WAITLIST_HEADERS:
+                worksheet.update("A1", [WAITLIST_HEADERS])
+        except Exception:
+            worksheet.update("A1", [WAITLIST_HEADERS])
 
-                return True
-            else:
-                logger.error(f"Waitlist submission failed: {result.get('message', 'unknown error')}")
-                return False
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        phone_value = f"'{phone}" if phone else ""
+
+        row = [
+            timestamp,
+            full_name,
+            email,
+            phone_value,
+            role,
+            clinic_name,
+            preferred_time,
+            "voice-call",
+        ]
+
+        worksheet.append_row(row, value_input_option="USER_ENTERED")
+        logger.info(f"Waitlist submission saved for {email}")
+        return True
 
     except Exception as e:
-        logger.error(f"Error submitting to waitlist API: {e}", exc_info=True)
+        logger.error(f"Error writing to Google Sheets: {e}", exc_info=True)
         return False

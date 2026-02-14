@@ -1,22 +1,10 @@
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { useEffect } from 'react';
 
 export function Demo() {
   const flowEasing = [0.22, 1, 0.36, 1] as const;
   
-  useEffect(() => {
-    // Load Calendly script
-    const script = document.createElement('script');
-    script.src = 'https://assets.calendly.com/assets/external/widget.js';
-    script.async = true;
-    document.body.appendChild(script);
-    
-    return () => {
-      // Clean up
-      document.body.removeChild(script);
-    };
-  }, []);
+  // Cal.com embed — no external script needed, using iframe
 
   return (
     <div className="min-h-screen pt-32">
@@ -51,11 +39,11 @@ export function Demo() {
               transition={{ duration: 0.8, ease: flowEasing, delay: 0.2 }}
               className=""
             >
-              {/* Calendly inline widget */}
-              <div 
-                className="calendly-inline-widget" 
-                data-url="https://calendly.com/axis-founders/15min" 
-                style={{ width: '100%', minWidth: '320px', height: '900px' }} 
+              {/* Cal.com inline widget */}
+              <iframe
+                src="https://cal.com/axis-founders/15min?embed=true&hideBranding=true"
+                style={{ width: '100%', minWidth: '320px', height: '900px', border: 'none' }}
+                title="Book a walkthrough"
               />
             </motion.div>
           </div>

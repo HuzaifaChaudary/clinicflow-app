@@ -1,12 +1,13 @@
 """
-Ava Server — Separate FastAPI server for Ava AI Voice & Text
+Ava Server — Separate FastAPI server for Ava AI Voice Assistant
 Run with: uvicorn ava_server:app --reload --host 0.0.0.0 --port 8002
 
 Endpoints:
-  GET  /                  — Health check
-  POST /api/voice         — Twilio voice webhook (returns TwiML to start Media Stream)
-  WS   /api/voice/ws      — WebSocket for Twilio Media Streams <-> OpenAI Realtime API
-  POST /api/sms           — Twilio SMS webhook (returns TwiML with Ava's reply)
+  GET  /                       — Health check
+  POST /api/voice              — Twilio voice webhook (returns TwiML to start Media Stream)
+  POST /api/voice/fallback     — Twilio fallback if primary handler fails
+  POST /api/voice/status       — Twilio call status change callback
+  WS   /api/voice/ws           — WebSocket for Twilio Media Streams <-> OpenAI Realtime API
 """
 
 import os
@@ -45,8 +46,9 @@ async def root():
         "status": "running",
         "endpoints": {
             "voice_webhook": "/api/voice",
+            "voice_fallback": "/api/voice/fallback",
+            "voice_status": "/api/voice/status",
             "voice_websocket": "/api/voice/ws",
-            "sms_webhook": "/api/sms",
         },
     }
 
@@ -71,25 +73,66 @@ async def voice_webhook(request: Request):
     1. Plays a brief greeting while the stream connects
     2. Opens a Media Stream WebSocket to our /api/voice/ws
     """
+    # Parse Twilio form data to get caller number
+    form = await request.form()
+    caller = form.get("From", "unknown")
+
     # Build the WebSocket URL from the request
     host = request.headers.get("x-forwarded-host", request.headers.get("host", "localhost:8002"))
     scheme = request.headers.get("x-forwarded-proto", "http")
     ws_scheme = "wss" if scheme == "https" else "ws"
     ws_url = f"{ws_scheme}://{host}/api/voice/ws"
 
-    logger.info(f"Voice webhook hit. Media Stream URL: {ws_url}")
+    logger.info(f"Voice webhook hit. Caller: {caller}, Media Stream URL: {ws_url}")
 
     twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
 <Response>
-    <Say voice="alice">Please hold for a moment while I connect you to Ava.</Say>
     <Connect>
         <Stream url="{ws_url}">
-            <Parameter name="caller" value="{{{{From}}}}" />
+            <Parameter name="caller" value="{caller}" />
         </Stream>
     </Connect>
 </Response>"""
 
     return Response(content=twiml, media_type="application/xml")
+
+
+# ── Voice: Fallback Handler ────────────────
+@app.post("/api/voice/fallback")
+async def voice_fallback(request: Request):
+    """
+    Twilio hits this if the primary voice handler fails.
+    Returns a simple TwiML apology message.
+    """
+    form = await request.form()
+    error_code = form.get("ErrorCode", "unknown")
+    error_url = form.get("ErrorUrl", "")
+    logger.error(f"Voice fallback triggered. ErrorCode={error_code}, ErrorUrl={error_url}")
+
+    twiml = """<?xml version="1.0" encoding="UTF-8"?>
+<Response>
+    <Say voice="alice">We're sorry, Ava is temporarily unavailable. Please try again shortly.</Say>
+    <Hangup/>
+</Response>"""
+    return Response(content=twiml, media_type="application/xml")
+
+
+# ── Voice: Status Callback ─────────────────
+@app.post("/api/voice/status")
+async def voice_status(request: Request):
+    """
+    Twilio posts call status changes here (ringing, in-progress, completed, etc.).
+    Used for logging/analytics.
+    """
+    form = await request.form()
+    call_sid = form.get("CallSid", "")
+    call_status = form.get("CallStatus", "")
+    from_number = form.get("From", "")
+    duration = form.get("CallDuration", "0")
+
+    logger.info(f"Call status: {call_status} | SID={call_sid} | From={from_number} | Duration={duration}s")
+
+    return Response(content="<Response/>", media_type="application/xml")
 
 
 # ── Voice: WebSocket (Twilio <-> OpenAI Realtime) ──
@@ -101,31 +144,6 @@ async def voice_websocket(ws: WebSocket):
     """
     from app.ava.voice_handler import handle_voice_websocket
     await handle_voice_websocket(ws)
-
-
-# ── SMS: Twilio Webhook ─────────────────────
-@app.post("/api/sms")
-async def sms_webhook(request: Request):
-    """
-    Twilio hits this when someone texts the Ava number.
-    Parses the message, gets Ava's reply from OpenAI, returns TwiML.
-    """
-    from app.ava.sms_handler import handle_incoming_sms, build_twiml_response
-
-    # Twilio sends form-encoded data
-    form = await request.form()
-    from_number = form.get("From", "")
-    body = form.get("Body", "").strip()
-
-    logger.info(f"SMS received from {from_number}: {body}")
-
-    if not body:
-        twiml = build_twiml_response("Hi! This is Ava from Axis Health. How can I help you today?")
-    else:
-        ava_reply = await handle_incoming_sms(from_number, body)
-        twiml = build_twiml_response(ava_reply)
-
-    return Response(content=twiml, media_type="application/xml")
 
 
 # ── Run ──────────────────────────────────────

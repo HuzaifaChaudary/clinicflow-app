@@ -1,6 +1,6 @@
 import { motion } from 'motion/react';
 import { Link } from 'react-router-dom';
-import { Phone, MessageSquare, UserPlus, Calendar, Bell, ChevronRight } from 'lucide-react';
+import { Phone, UserPlus, Calendar, Bell } from 'lucide-react';
 
 export function TryAva() {
   const flowEasing = [0.22, 1, 0.36, 1];
@@ -18,9 +18,9 @@ export function TryAva() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: flowEasing }}
             >
-              <h1 className="mb-8 font-medium">Ava AI is your clinic's voice and text front desk.</h1>
+              <h1 className="mb-8 font-medium">Ava AI is your clinic's voice front desk.</h1>
               <p className="text-lg text-[var(--foreground-muted)] font-normal mb-8" style={{ lineHeight: '1.75' }}>
-                Call, text, or email like today. Ava answers first, your team steps in when needed, and clinics see fewer missed calls and no‑shows.
+                Call like today. Ava answers first, your team steps in when needed, and clinics see fewer missed calls and no‑shows.
               </p>
 
               {/* Primary CTA */}
@@ -43,14 +43,14 @@ export function TryAva() {
             </div>
 
             <motion.div
-              className="grid grid-cols-1 md:grid-cols-2 gap-6"
+              className="max-w-md mx-auto"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, ease: flowEasing, delay: 0.2 }}
             >
-              {/* Call Ava - emphasized */}
+              {/* Call Ava */}
               <motion.div 
-                className="p-6 rounded-xl bg-[var(--blue-soft)]/40 border border-[var(--blue-primary)]/20 cursor-pointer shadow-sm"
+                className="p-8 rounded-xl bg-[var(--blue-soft)]/40 border border-[var(--blue-primary)]/20 cursor-pointer shadow-sm text-center"
                 style={{ transition: 'all 150ms ease-out' }}
                 whileHover={{
                   backgroundColor: '#EAF1FF',
@@ -58,39 +58,18 @@ export function TryAva() {
                   boxShadow: '0 8px 24px rgba(37, 99, 235, 0.12)'
                 }}
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <Phone className="text-[var(--blue-primary)]" size={20} strokeWidth={2} />
-                  <span className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider">Live demo line</span>
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <Phone className="text-[var(--blue-primary)]" size={22} strokeWidth={2} />
+                  <span className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider">Call Ava now</span>
                 </div>
-                <a href="tel:5555550123" className="block">
-                  <div className="text-3xl font-semibold text-[var(--blue-primary)] mb-1 cursor-pointer hover:underline">(555) 555-0123</div>
+                <a href="tel:+16282004122" className="block">
+                  <div className="text-4xl font-semibold text-[var(--blue-primary)] mb-2 cursor-pointer hover:underline">(628) 200-4122</div>
                 </a>
-                <p className="text-xs text-[var(--foreground-muted)]/70 font-normal mb-3">Click or tap the number to call.</p>
-                <p className="text-sm text-[var(--foreground-muted)] font-normal mb-3">Call this number to book a dashboard walkthrough with our team and get 3 months free access.</p>
+                <p className="text-xs text-[var(--foreground-muted)]/70 font-normal mb-4">Click or tap the number to call now.</p>
+                <p className="text-sm text-[var(--foreground-muted)] font-normal mb-3">Call now to secure your spot for a dashboard walkthrough and lock in 3 months free access. <span className="font-medium">Limited spots available this week!</span></p>
                 <p className="text-sm text-[var(--foreground-muted)] font-normal">
-                  Prefer a different option? <Link to="/voice-automation" className="text-[var(--blue-primary)] hover:underline font-normal">Or Try Ava Voice assistant to Join Waitlist</Link>.
+                  Prefer a different option? <Link to="/trial" className="text-[var(--blue-primary)] hover:underline font-normal">Join Waitlist instead</Link>.
                 </p>
-              </motion.div>
-
-              {/* Text Ava */}
-              <motion.div 
-                className="p-6 rounded-xl bg-[var(--blue-soft)]/40 border border-[var(--blue-primary)]/20 cursor-pointer shadow-sm"
-                style={{ transition: 'all 150ms ease-out' }}
-                whileHover={{
-                  backgroundColor: '#EAF1FF',
-                  borderColor: 'rgba(37, 99, 235, 0.3)',
-                  boxShadow: '0 8px 24px rgba(37, 99, 235, 0.12)'
-                }}
-              >
-                <div className="flex items-center gap-3 mb-2">
-                  <MessageSquare className="text-[var(--blue-primary)]" size={20} strokeWidth={2} />
-                  <span className="text-base font-medium text-[var(--foreground)]">Text Ava</span>
-                </div>
-                <a href="sms:5555550124" className="block">
-                  <div className="text-2xl font-semibold text-[var(--blue-primary)] mb-1 cursor-pointer hover:underline">(555) 555-0124</div>
-                </a>
-                <p className="text-xs text-[var(--foreground-muted)]/70 font-normal mb-3">Click or tap the number to text.</p>
-                <p className="text-sm text-[var(--foreground-muted)] font-normal">Text <strong>"Hi Ava"</strong> to book a dashboard walkthrough and get 3 months free access.</p>
               </motion.div>
             </motion.div>
 
@@ -127,23 +106,6 @@ export function TryAva() {
                   </div>
                 </div>
 
-                {/* Recent message */}
-                <div className="p-6 bg-[var(--background-secondary)]/20">
-                  <div className="flex items-center gap-2 mb-5">
-                    <MessageSquare className="text-[var(--blue-primary)]" size={16} strokeWidth={2} />
-                    <span className="text-sm font-medium text-[var(--foreground)]">Recent message</span>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="bg-[var(--background-secondary)]/50 p-4 rounded-lg max-w-sm">
-                      <p className="text-sm text-[var(--foreground)] font-normal">I need to move my Thursday appointment to next week.</p>
-                    </div>
-                    <div className="flex justify-end">
-                      <div className="bg-[var(--blue-primary)] text-white p-4 rounded-lg max-w-sm">
-                        <p className="text-sm font-normal text-white">I can help with that. What day works best for you next week?</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
             </motion.div>
           </div>
@@ -293,26 +255,27 @@ export function TryAva() {
               >
                 <div className="flex items-center gap-3 mb-6">
                   <div className="w-10 h-10 rounded-lg bg-[var(--blue-soft)] flex items-center justify-center">
-                    <MessageSquare className="text-[var(--blue-primary)]" size={18} strokeWidth={2} />
+                    <Calendar className="text-[var(--blue-primary)]" size={18} strokeWidth={2} />
                   </div>
-                  <span className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider">Reschedule over text</span>
+                  <span className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider">Reschedule call</span>
                 </div>
-                <div className="space-y-3 mb-6 flex-1">
-                  <div className="bg-[var(--background-secondary)]/30 p-4 rounded-lg">
-                    <p className="text-sm text-[var(--foreground)] font-normal">Your appointment is tomorrow at 2 PM. Can you still make it?</p>
+                <div className="space-y-4 mb-6 flex-1">
+                  <div className="flex items-start gap-3">
+                    <div className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider mt-1 w-14 flex-shrink-0">Caller</div>
+                    <p className="text-sm text-[var(--foreground)] font-normal flex-1" style={{ lineHeight: '1.7' }}>
+                      I need to move my Thursday appointment to next week.
+                    </p>
                   </div>
-                  <div className="flex justify-end">
-                    <div className="bg-[var(--background-secondary)]/50 p-4 rounded-lg max-w-[85%]">
-                      <p className="text-sm text-[var(--foreground)] font-normal">I need to move it to next week.</p>
-                    </div>
-                  </div>
-                  <div className="bg-[var(--background-secondary)]/30 p-4 rounded-lg">
-                    <p className="text-sm text-[var(--foreground)] font-normal">How about Thursday at 10 AM?</p>
+                  <div className="flex items-start gap-3">
+                    <div className="text-xs font-medium text-[var(--foreground-muted)] uppercase tracking-wider mt-1 w-14 flex-shrink-0">Ava</div>
+                    <p className="text-sm text-[var(--foreground)] font-normal flex-1" style={{ lineHeight: '1.7' }}>
+                      No problem! How about Thursday at 10 AM? I have that open.
+                    </p>
                   </div>
                 </div>
                 <div className="pt-4 border-t border-[var(--glass-border)]">
                   <p className="text-sm text-[var(--foreground-muted)] font-normal italic">
-                    Outcome: Visit rescheduled without a phone call.
+                    Outcome: Visit rescheduled in under a minute.
                   </p>
                 </div>
               </motion.div>
@@ -389,7 +352,7 @@ export function TryAva() {
                 },
                 {
                   title: 'Fewer no‑shows',
-                  subline: 'Voice and SMS reminders confirm or reschedule more visits.'
+                  subline: 'Voice reminders confirm or reschedule more visits.'
                 },
                 {
                   title: 'Less front desk time per kept visit',
@@ -449,7 +412,7 @@ export function TryAva() {
             >
               <h2 className="mb-6 font-medium">Hear Ava on your own phone.</h2>
               <p className="text-base text-[var(--foreground-muted)] mb-12 font-normal" style={{ lineHeight: '1.75' }}>
-                Call the demo line (555) 555-0123 now or <Link to="/trial" className="text-[var(--blue-primary)] hover:underline">join the waitlist</Link> to get Ava on your clinic's number.
+                Call (628) 200-4122 now or <Link to="/trial" className="text-[var(--blue-primary)] hover:underline">join the waitlist</Link> to get Ava on your clinic's number.
               </p>
 
               <div className="max-w-[600px] mx-auto p-10 rounded-3xl bg-[var(--blue-soft)]/40">

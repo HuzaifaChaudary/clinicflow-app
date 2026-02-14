@@ -1,6 +1,7 @@
 import { motion } from 'motion/react';
 import { useEffect, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
+import { config } from '../config';
 
 export function Trial() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -30,7 +31,7 @@ export function Trial() {
   });
 
   const [submitted, setSubmitted] = useState(false);
-  const [calendlyScheduled, setCalendlyScheduled] = useState(false);
+  const [calScheduled, setCalScheduled] = useState(false);
 
   useEffect(() => {
     if (submitted) {
@@ -39,24 +40,51 @@ export function Trial() {
   }, [submitted]);
 
   useEffect(() => {
-    // Load Calendly script
-    const script = document.createElement('script');
-    script.src = 'https://assets.calendly.com/assets/external/widget.js';
-    script.async = true;
-    document.body.appendChild(script);
+    // Load Cal.com embed SDK
+    (function (C: any, A: string, L: string) {
+      const p = function (a: any, ar: any) { a.q.push(ar); };
+      const d = C.document;
+      C.Cal = C.Cal || function (...args: any[]) {
+        const cal = C.Cal;
+        const ar = args;
+        if (!cal.loaded) {
+          cal.ns = {};
+          cal.q = cal.q || [];
+          const s = d.head.appendChild(d.createElement('script'));
+          s.src = A;
+          cal.loaded = true;
+        }
+        if (ar[0] === L) {
+          const api: any = function (...apiArgs: any[]) { p(api, apiArgs); };
+          const namespace = ar[1];
+          api.q = api.q || [];
+          if (typeof namespace === 'string') {
+            cal.ns[namespace] = api;
+            p(api, ar);
+          } else {
+            p(cal, ar);
+          }
+          return;
+        }
+        p(cal, ar);
+      };
+    })(window, 'https://app.cal.com/embed/embed.js', 'init');
 
-    // Listen for Calendly scheduling event
-    const handleCalendlyEvent = (e: MessageEvent) => {
-      if (e.data?.event === 'calendly.event_scheduled') {
-        setCalendlyScheduled(true);
-      }
-    };
-    window.addEventListener('message', handleCalendlyEvent);
+    const Cal = (window as any).Cal;
+    Cal('init', { origin: 'https://cal.com' });
 
-    return () => {
-      document.body.removeChild(script);
-      window.removeEventListener('message', handleCalendlyEvent);
-    };
+    Cal('inline', {
+      elementOrSelector: '#cal-booking-inline',
+      calLink: 'axis-founders/15min',
+      layout: 'month_view',
+    });
+
+    Cal('on', {
+      action: 'bookingSuccessful',
+      callback: () => {
+        setCalScheduled(true);
+      },
+    });
   }, []);
 
   const formatUSPhone = useCallback((value: string) => {
@@ -205,10 +233,9 @@ export function Trial() {
     setIsSubmitting(true);
     
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      console.log('Submitting to:', `${apiUrl}/api/waitlist`);
+      console.log('Submitting to:', `${config.apiUrl}/api/waitlist`);
       
-      const response = await fetch(`${apiUrl}/api/waitlist`, {
+      const response = await fetch(`${config.apiUrl}/api/waitlist`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -704,7 +731,7 @@ export function Trial() {
             </div>
           </div>
 
-          {/* Calendly Section */}
+          {/* Cal.com Section */}
           <div>
             <label className="block mb-3 text-lg">
               Book a walkthrough with our team
@@ -713,9 +740,8 @@ export function Trial() {
               Pick a time that works for you. We'll walk you through the dashboard and show you how Axis solves your clinic's problems.
             </p>
             <div
-              className="calendly-inline-widget"
-              data-url="https://calendly.com/axis-founders/15min?hide_event_type_details=1&hide_gdpr_banner=1"
-              style={{ width: '100%', minWidth: '320px', height: '660px' }}
+              id="cal-booking-inline"
+              style={{ width: '100%', minWidth: '320px', height: '660px', overflow: 'auto' }}
             />
           </div>
 
@@ -728,16 +754,16 @@ export function Trial() {
             )}
             <motion.button
               type="submit"
-              disabled={isSubmitting || !calendlyScheduled}
+              disabled={isSubmitting || !calScheduled}
               className={`w-full py-6 font-medium rounded-full transition-all duration-200 text-lg disabled:cursor-not-allowed ${
-                calendlyScheduled
+                calScheduled
                   ? 'bg-[var(--blue-primary)] text-white hover:bg-[var(--blue-vivid)] shadow-[0_2px_12px_rgba(37,99,235,0.15)] hover:shadow-[0_4px_16px_rgba(37,99,235,0.25)]'
                   : 'bg-gray-300 text-gray-500'
               }`}
-              whileHover={{ scale: isSubmitting || !calendlyScheduled ? 1 : 1.01 }}
-              whileTap={{ scale: isSubmitting || !calendlyScheduled ? 1 : 0.99 }}
+              whileHover={{ scale: isSubmitting || !calScheduled ? 1 : 1.01 }}
+              whileTap={{ scale: isSubmitting || !calScheduled ? 1 : 0.99 }}
             >
-              {isSubmitting ? 'Submitting...' : !calendlyScheduled ? 'Book a time above to continue' : 'Join the waitlist'}
+              {isSubmitting ? 'Submitting...' : !calScheduled ? 'Book a time above to continue' : 'Join the waitlist'}
             </motion.button>
             <p className="text-center text-sm text-[var(--foreground-muted)] mt-6 leading-relaxed">
               Joining the waitlist gets you 3 months free when we launch.<br />
