@@ -82,7 +82,7 @@ async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
                     "silence_duration_ms": 500,
                 },
                 "temperature": 0.7,
-                "max_response_output_tokens": 512,
+                "max_response_output_tokens": 150,
                 "tools": [SUBMIT_WAITLIST_TOOL_REALTIME],
                 "tool_choice": "auto",
             },
