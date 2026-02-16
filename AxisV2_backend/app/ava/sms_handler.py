@@ -1,13 +1,13 @@
 """
 SMS Handler — Twilio SMS Webhook + OpenAI Chat Completions
-Handles inbound SMS messages via Twilio webhook, uses OpenAI gpt-4o-mini for fast responses.
+Handles inbound SMS messages via Twilio webhook, uses OpenAI gpt-5.1 (reasoning) for responses.
 Supports function calling to submit intake data to the waitlist API.
 
 Flow:
 1. Patient texts the Twilio number
 2. Twilio hits /api/sms webhook with the message
 3. We look up conversation history (in-memory)
-4. Send to OpenAI gpt-4o-mini with system prompt + history + tools
+4. Send to OpenAI gpt-5.1 with system prompt + history + tools
 5. If OpenAI calls submit_waitlist, we post to the waitlist API and feed result back
 6. Return TwiML MessagingResponse with Ava's reply
 """
@@ -137,9 +137,10 @@ async def handle_incoming_sms(from_number: str, body: str) -> str:
     try:
         client = _get_openai_client()
 
-        # Use gpt-4o-mini for fastest response time, with function calling
+        # Use gpt-5.1 for reasoning, with function calling
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-5.1",
+            reasoning_effort="high",
             messages=messages,
             max_tokens=256,
             temperature=0.7,
@@ -179,7 +180,8 @@ async def handle_incoming_sms(from_number: str, body: str) -> str:
                 ] + _get_conversation(from_number)
 
                 followup = client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model="gpt-5.1",
+                    reasoning_effort="high",
                     messages=followup_messages,
                     max_tokens=256,
                     temperature=0.7,

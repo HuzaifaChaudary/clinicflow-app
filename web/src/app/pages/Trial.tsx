@@ -170,6 +170,26 @@ export function Trial() {
             </div>
           </motion.div>
 
+          {/* Book a demo (Calendly) */}
+          <motion.div
+            className="pt-4"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 1, ease: flowEasing }}
+          >
+            <p className="text-center text-sm text-[var(--foreground-muted)] mb-3">
+              Prefer to book a 15-minute walkthrough with our team?
+            </p>
+            <a
+              href="https://calendly.com/axis-founders/15min"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block w-full py-4 rounded-full border-2 border-[var(--accent-mint)] text-[var(--accent-mint)] hover:bg-[var(--accent-mint)]/10 transition-all duration-300 text-center font-medium text-lg"
+            >
+              Book on Calendly
+            </a>
+          </motion.div>
+
           {/* Submit Button */}
           <motion.div
             className="pt-8"

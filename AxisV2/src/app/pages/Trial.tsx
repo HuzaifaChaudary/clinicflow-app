@@ -40,51 +40,13 @@ export function Trial() {
   }, [submitted]);
 
   useEffect(() => {
-    // Load Cal.com embed SDK
-    (function (C: any, A: string, L: string) {
-      const p = function (a: any, ar: any) { a.q.push(ar); };
-      const d = C.document;
-      C.Cal = C.Cal || function (...args: any[]) {
-        const cal = C.Cal;
-        const ar = args;
-        if (!cal.loaded) {
-          cal.ns = {};
-          cal.q = cal.q || [];
-          const s = d.head.appendChild(d.createElement('script'));
-          s.src = A;
-          cal.loaded = true;
-        }
-        if (ar[0] === L) {
-          const api: any = function (...apiArgs: any[]) { p(api, apiArgs); };
-          const namespace = ar[1];
-          api.q = api.q || [];
-          if (typeof namespace === 'string') {
-            cal.ns[namespace] = api;
-            p(api, ar);
-          } else {
-            p(cal, ar);
-          }
-          return;
-        }
-        p(cal, ar);
-      };
-    })(window, 'https://app.cal.com/embed/embed.js', 'init');
-
-    const Cal = (window as any).Cal;
-    Cal('init', { origin: 'https://cal.com' });
-
-    Cal('inline', {
-      elementOrSelector: '#cal-booking-inline',
-      calLink: 'axis-founders/15min',
-      layout: 'month_view',
-    });
-
-    Cal('on', {
-      action: 'bookingSuccessful',
-      callback: () => {
+    const handler = (e: MessageEvent) => {
+      if (e.origin === 'https://calendly.com' && e.data?.event === 'calendly.event_scheduled') {
         setCalScheduled(true);
-      },
-    });
+      }
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
   }, []);
 
   const formatUSPhone = useCallback((value: string) => {
@@ -731,7 +693,7 @@ export function Trial() {
             </div>
           </div>
 
-          {/* Cal.com Section */}
+          {/* Calendly Section */}
           <div>
             <label className="block mb-3 text-lg">
               Book a walkthrough with our team
@@ -739,9 +701,10 @@ export function Trial() {
             <p className="text-sm text-[var(--foreground-muted)] mb-8">
               Pick a time that works for you. We'll walk you through the dashboard and show you how Axis solves your clinic's problems.
             </p>
-            <div
-              id="cal-booking-inline"
-              style={{ width: '100%', minWidth: '320px', height: '660px', overflow: 'auto' }}
+            <iframe
+              src="https://calendly.com/axis-founders/15min?embed_domain=useaxis.app&embed_type=Inline"
+              style={{ width: '100%', minWidth: '320px', height: '660px', border: 'none' }}
+              title="Book a walkthrough on Calendly"
             />
           </div>
 

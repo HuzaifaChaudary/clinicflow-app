@@ -17,7 +17,7 @@ import logging
 import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 
-from app.ava.prompts import VOICE_SYSTEM_PROMPT, SUBMIT_WAITLIST_TOOL_REALTIME
+from app.ava.prompts import get_voice_system_prompt, SUBMIT_WAITLIST_TOOL_REALTIME
 from app.ava.waitlist_submit import submit_to_waitlist
 
 logger = logging.getLogger("ava.voice")
@@ -68,8 +68,8 @@ async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
             "type": "session.update",
             "session": {
                 "modalities": ["text", "audio"],
-                "instructions": VOICE_SYSTEM_PROMPT,
-                "voice": "alloy",
+                "instructions": get_voice_system_prompt(),
+                "voice": "shimmer",  # feminine, clear; use a more assertive voice when available if desired
                 "input_audio_format": "g711_ulaw",
                 "output_audio_format": "g711_ulaw",
                 "input_audio_transcription": {
@@ -77,7 +77,7 @@ async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
                 },
                 "turn_detection": {
                     "type": "server_vad",
-                    "threshold": 0.5,
+                    "threshold": 0.6,
                     "prefix_padding_ms": 300,
                     "silence_duration_ms": 500,
                 },

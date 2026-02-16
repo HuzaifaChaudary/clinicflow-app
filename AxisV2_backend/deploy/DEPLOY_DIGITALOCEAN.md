@@ -79,7 +79,7 @@ TWILIO_AUTH_TOKEN=your-token
 TWILIO_VOICE_NUMBER=+18884645649
 TWILIO_SMS_NUMBER=+18884645649
 WAITLIST_API_URL=https://your-vercel-backend.vercel.app/api/waitlist
-CAL_BOOKING_URL=https://cal.com/axis-founders/15min
+CAL_BOOKING_URL=https://calendly.com/axis-founders/15min
 ```
 
 Make sure `ava` user owns everything:
