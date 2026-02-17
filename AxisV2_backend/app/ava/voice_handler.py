@@ -18,7 +18,7 @@ import websockets
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.ava.prompts import get_voice_system_prompt, SUBMIT_WAITLIST_TOOL_REALTIME
-from app.ava.waitlist_submit import submit_to_waitlist
+from app.ava.waitlist_submit import submit_to_waitlist, get_booked_slots
 
 logger = logging.getLogger("ava.voice")
 
@@ -30,6 +30,8 @@ class _SessionState:
     def __init__(self):
         self.stream_sid: str = ""
         self.caller_phone: str = ""
+        self.waitlist_submitted: bool = False
+        self.booked_slots: list[str] = []
 
 
 async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
@@ -63,12 +65,17 @@ async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
         )
         logger.info("Connected to OpenAI Realtime API")
 
+        # Fetch already-booked slots from Google Sheets
+        booked_slots = get_booked_slots()
+        state.booked_slots = booked_slots
+        logger.info(f"Booked slots for this session: {booked_slots}")
+
         # Configure session: g711_ulaw audio, voice, system prompt, and tools
         session_config = {
             "type": "session.update",
             "session": {
                 "modalities": ["text", "audio"],
-                "instructions": get_voice_system_prompt(),
+                "instructions": get_voice_system_prompt(booked_slots=booked_slots),
                 "voice": "shimmer",  # feminine, clear; use a more assertive voice when available if desired
                 "input_audio_format": "g711_ulaw",
                 "output_audio_format": "g711_ulaw",
@@ -77,12 +84,12 @@ async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
                 },
                 "turn_detection": {
                     "type": "server_vad",
-                    "threshold": 0.6,
-                    "prefix_padding_ms": 300,
-                    "silence_duration_ms": 500,
+                    "threshold": 0.65,
+                    "prefix_padding_ms": 350,
+                    "silence_duration_ms": 700,
                 },
-                "temperature": 0.7,
-                "max_response_output_tokens": 150,
+                "temperature": 0.6,
+                "max_response_output_tokens": 512,
                 "tools": [SUBMIT_WAITLIST_TOOL_REALTIME],
                 "tool_choice": "auto",
             },
@@ -238,9 +245,16 @@ async def _openai_to_twilio(twilio_ws: WebSocket, openai_ws, state: _SessionStat
                 logger.info(f"Function call: {fn_name} (call_id={call_id})")
 
                 if fn_name == "submit_waitlist":
-                    await _handle_submit_waitlist(
-                        openai_ws, call_id, fn_args_str, state.caller_phone
-                    )
+                    if state.waitlist_submitted:
+                        logger.info("submit_waitlist already called this session — returning cached success")
+                        await _send_function_result(
+                            openai_ws, call_id,
+                            json.dumps({"success": True, "message": "Already submitted. Tell the caller they're all set."})
+                        )
+                    else:
+                        await _handle_submit_waitlist(
+                            openai_ws, call_id, fn_args_str, state.caller_phone, state
+                        )
                 else:
                     # Unknown function — return error
                     await _send_function_result(
@@ -258,15 +272,53 @@ async def _openai_to_twilio(twilio_ws: WebSocket, openai_ws, state: _SessionStat
         logger.error(f"Error in openai_to_twilio: {e}", exc_info=True)
 
 
-async def _handle_submit_waitlist(openai_ws, call_id: str, args_str: str, phone: str):
+def _is_time_conflict(preferred_time: str, booked_slots: list[str]) -> bool:
+    """Check if the preferred time conflicts with any already-booked slot."""
+    if not preferred_time or not booked_slots:
+        return False
+    # Normalize for comparison: lowercase, strip whitespace
+    norm = preferred_time.lower().strip()
+    for slot in booked_slots:
+        slot_norm = slot.lower().strip()
+        # Exact match
+        if norm == slot_norm:
+            return True
+        # Partial match — if key parts overlap (date + time substring)
+        # Extract just digits and am/pm for fuzzy time matching
+        import re
+        norm_nums = re.findall(r'\d+:\d+\s*[ap]m', norm)
+        slot_nums = re.findall(r'\d+:\d+\s*[ap]m', slot_norm)
+        if norm_nums and slot_nums and norm_nums[0] == slot_nums[0]:
+            # Same time — check if same date keywords overlap
+            # Extract month+day numbers
+            norm_dates = re.findall(r'(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+', norm)
+            slot_dates = re.findall(r'(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+', slot_norm)
+            if norm_dates and slot_dates and norm_dates[0] == slot_dates[0]:
+                return True
+    return False
+
+
+async def _handle_submit_waitlist(openai_ws, call_id: str, args_str: str, phone: str, state: _SessionState):
     """Handle the submit_waitlist function call from OpenAI."""
     try:
         args = json.loads(args_str)
-        logger.info(f"Submitting waitlist: {args.get('fullName')} / {args.get('email')}")
+        preferred_time = args.get("preferredTime", "")
+        logger.info(f"Submitting waitlist: {args.get('fullName')} / {args.get('email')} / time={preferred_time}")
+
+        # Code-level check: reject if time conflicts with an existing booking
+        if _is_time_conflict(preferred_time, state.booked_slots):
+            logger.warning(f"Time conflict detected: {preferred_time} is already booked")
+            result = {
+                "success": False,
+                "error": f"The time '{preferred_time}' is already booked. Ask the caller to pick a different time."
+            }
+            await _send_function_result(openai_ws, call_id, json.dumps(result))
+            return
 
         success = await submit_to_waitlist(args, phone=phone)
 
         if success:
+            state.waitlist_submitted = True
             result = {"success": True, "message": "Waitlist submission successful. Tell the caller they're all set."}
         else:
             result = {"success": False, "message": "Submission had an issue but we captured the info. Reassure the caller."}

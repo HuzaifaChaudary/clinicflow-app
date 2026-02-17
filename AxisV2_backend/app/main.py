@@ -5,6 +5,7 @@ import os
 from app.config import settings
 from app.schemas import WaitlistSubmission, WaitlistResponse, ContactSubmission, ContactResponse
 from app.services import get_google_sheets_service
+from app.services.google_sheets import send_waitlist_welcome_email
 
 # Create FastAPI app (lifespan disabled for serverless via Mangum)
 app = FastAPI(
@@ -72,7 +73,18 @@ async def submit_waitlist(submission: WaitlistSubmission):
             )
         
         await sheets_service.add_waitlist_submission(submission)
-        
+
+        # Send waitlist welcome email
+        if submission.email:
+            try:
+                send_waitlist_welcome_email(
+                    full_name=submission.fullName,
+                    email=submission.email,
+                    clinic_name=submission.clinicName,
+                )
+            except Exception as e:
+                print(f"Warning: Failed to send waitlist welcome email: {e}")
+
         return WaitlistResponse(
             success=True,
             message="Successfully added to waitlist"

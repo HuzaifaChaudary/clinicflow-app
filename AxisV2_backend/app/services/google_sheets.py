@@ -1,4 +1,10 @@
 import gspread
+import os
+import ssl
+import smtplib
+import logging
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 from typing import Dict, Any
@@ -6,6 +12,8 @@ import json
 
 from app.config import settings
 from app.schemas import WaitlistSubmission, ContactSubmission
+
+logger = logging.getLogger("waitlist.email")
 
 
 class GoogleSheetsService:
@@ -305,6 +313,159 @@ class GoogleSheetsService:
         except Exception as e:
             print(f"Error adding contact submission: {e}")
             raise
+
+
+def send_waitlist_welcome_email(full_name: str, email: str, clinic_name: str):
+    """Send a welcome email after web waitlist submission."""
+    smtp_email = os.getenv("SMTP_EMAIL", "")
+    smtp_password = os.getenv("SMTP_PASSWORD", "")
+    smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.getenv("SMTP_PORT", "465"))
+
+    if not all([smtp_email, smtp_password]):
+        logger.warning("SMTP not configured — skipping waitlist welcome email")
+        return
+
+    first_name = full_name.split()[0] if full_name else "there"
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = f"You're on the Axis waitlist!"
+    msg["From"] = f"Axis <{smtp_email}>"
+    msg["To"] = email
+    msg["Reply-To"] = "sales@useaxis.app"
+
+    text = f"""Hi {first_name},
+
+Thanks for joining the Axis waitlist!
+
+We've received your submission for {clinic_name}. Our team will review your details and reach out to you shortly to get things started.
+
+Early access is prioritized based on clinic size and operational needs — we're talking to a small group of clinics first to build this right.
+
+If you have any questions in the meantime, just reply to this email.
+
+Talk soon,
+The Axis Team
+"""
+
+    html = f"""\
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0; padding:0; background-color:#f4f4f5; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5; padding: 40px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
+
+          <!-- Header with Logo -->
+          <tr>
+            <td style="background-color:#2563EB; padding: 32px 40px; text-align:center;">
+              <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
+                <tr>
+                  <td style="padding-right: 10px; vertical-align: middle;">
+                    <svg width="32" height="32" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M2 22 L46 22" stroke="#ffffff" stroke-width="2.5" stroke-linecap="square"/>
+                      <path d="M28 6 L28 38" stroke="#ffffff" stroke-width="2.5" stroke-linecap="square"/>
+                      <path d="M12 32 L36 14" stroke="#ffffff" stroke-width="2" stroke-linecap="square"/>
+                      <rect x="26" y="20" width="4" height="4" fill="#ffffff"/>
+                    </svg>
+                  </td>
+                  <td style="vertical-align: middle;">
+                    <span style="color:#ffffff; font-size:24px; font-weight:700; letter-spacing:1px;">AXIS</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding: 40px;">
+              <h1 style="margin:0 0 8px 0; font-size:22px; color:#111827; font-weight:600;">
+                You're on the waitlist!
+              </h1>
+              <p style="margin:0 0 28px 0; font-size:15px; color:#6b7280; line-height:1.5;">
+                Hi {first_name}, thanks for signing up. We've received your details.
+              </p>
+
+              <!-- Details Card -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff; border-radius:8px; margin-bottom:28px;">
+                <tr>
+                  <td style="padding: 24px;">
+                    <table width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td style="padding-bottom:12px;">
+                          <p style="margin:0 0 4px 0; font-size:12px; color:#2563EB; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Name</p>
+                          <p style="margin:0; font-size:16px; color:#1e40af; font-weight:600;">{full_name}</p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td>
+                          <p style="margin:0 0 4px 0; font-size:12px; color:#2563EB; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Clinic</p>
+                          <p style="margin:0; font-size:16px; color:#1e40af; font-weight:500;">{clinic_name}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Divider -->
+              <hr style="border:none; border-top:1px solid #e5e7eb; margin:0 0 24px 0;">
+
+              <!-- What happens next -->
+              <p style="margin:0 0 12px 0; font-size:13px; color:#6b7280; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">What happens next</p>
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td style="padding:6px 0; font-size:14px; color:#374151;">&#10003;&nbsp;&nbsp;Our team reviews your submission</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0; font-size:14px; color:#374151;">&#10003;&nbsp;&nbsp;We'll reach out to schedule onboarding</td>
+                </tr>
+                <tr>
+                  <td style="padding:6px 0; font-size:14px; color:#374151;">&#10003;&nbsp;&nbsp;Early adopters get 3 months free</td>
+                </tr>
+              </table>
+
+              <p style="margin:0; font-size:14px; color:#6b7280; line-height:1.5;">
+                Questions? Just reply to this email.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#f9fafb; padding: 24px 40px; text-align:center; border-top:1px solid #e5e7eb;">
+              <p style="margin:0 0 4px 0; font-size:13px; color:#9ca3af;">
+                Axis — The clinic operating system
+              </p>
+              <p style="margin:0; font-size:13px;">
+                <a href="https://useaxis.app" style="color:#2563EB; text-decoration:none;">useaxis.app</a>
+                &nbsp;&middot;&nbsp;
+                <a href="mailto:sales@useaxis.app" style="color:#2563EB; text-decoration:none;">sales@useaxis.app</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>"""
+
+    msg.attach(MIMEText(text, "plain"))
+    msg.attach(MIMEText(html, "html"))
+
+    try:
+        context = ssl.create_default_context()
+        with smtplib.SMTP_SSL(smtp_host, smtp_port, context=context) as server:
+            server.login(smtp_email, smtp_password)
+            server.sendmail(smtp_email, email, msg.as_string())
+        logger.info(f"Waitlist welcome email sent to {email}")
+    except Exception as e:
+        logger.error(f"Failed to send waitlist welcome email to {email}: {e}", exc_info=True)
 
 
 # Singleton instance
