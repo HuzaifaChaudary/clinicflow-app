@@ -39,11 +39,11 @@ export function Demo() {
               transition={{ duration: 0.8, ease: flowEasing, delay: 0.2 }}
               className=""
             >
-              {/* Calendly inline widget */}
+              {/* Cal.com inline widget */}
               <iframe
-                src="https://calendly.com/axis-founders/15min?embed_domain=useaxis.app&embed_type=Inline"
+                src="https://cal.com/axis-founders/15min?embed=true&layout=month_view&theme=light"
                 style={{ width: '100%', minWidth: '320px', height: '900px', border: 'none' }}
-                title="Book a walkthrough on Calendly"
+                title="Book a walkthrough"
               />
             </motion.div>
           </div>

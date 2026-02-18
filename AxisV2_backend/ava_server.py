@@ -1,20 +1,23 @@
 """
-Ava Server — Separate FastAPI server for Ava AI Voice Assistant
+Ava Server — FastAPI server for Ava AI Voice Assistant (Retell AI Edition)
 Run with: uvicorn ava_server:app --reload --host 0.0.0.0 --port 8002
 
+Architecture:
+  Twilio (phone infrastructure) → SIP Trunk → Retell AI (orchestration brain)
+  → ElevenLabs (voice synthesis) → Your backend (webhooks below)
+
 Endpoints:
-  GET  /                       — Health check
-  POST /api/voice              — Twilio voice webhook (returns TwiML to start Media Stream)
-  POST /api/voice/fallback     — Twilio fallback if primary handler fails
-  POST /api/voice/status       — Twilio call status change callback
-  WS   /api/voice/ws           — WebSocket for Twilio Media Streams <-> OpenAI Realtime API
+  GET  /                                  — Health check
+  GET  /health                            — Detailed health check
+  POST /api/retell/inbound                — Inbound call webhook (returns dynamic variables)
+  POST /api/retell/webhook                — Retell call lifecycle events
+  POST /api/retell/tools/submit-waitlist  — Custom tool: submit waitlist data
 """
 
 import os
 import logging
-from fastapi import FastAPI, WebSocket, Request, Response
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -27,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger("ava_server")
 
 # ── App ──────────────────────────────────────
-app = FastAPI(title="Ava AI Server", version="1.0.0")
+app = FastAPI(title="Ava AI Server (Retell)", version="2.0.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,108 +45,81 @@ app.add_middleware(
 @app.get("/")
 async def root():
     return {
-        "service": "Ava AI Server",
+        "service": "Ava AI Server (Retell Edition)",
         "status": "running",
+        "architecture": {
+            "orchestration": "Retell AI",
+            "voice": "ElevenLabs (via Retell)",
+            "telephony": "Twilio (SIP Trunk → Retell)",
+        },
         "endpoints": {
-            "voice_webhook": "/api/voice",
-            "voice_fallback": "/api/voice/fallback",
-            "voice_status": "/api/voice/status",
-            "voice_websocket": "/api/voice/ws",
+            "inbound_webhook": "/api/retell/inbound",
+            "call_webhook": "/api/retell/webhook",
+            "submit_waitlist_tool": "/api/retell/tools/submit-waitlist",
         },
     }
 
 
 @app.get("/health")
 async def health():
-    has_openai = bool(os.getenv("OPENAI_API_KEY"))
+    has_retell = bool(os.getenv("RETELL_API_KEY"))
     has_twilio_sid = bool(os.getenv("TWILIO_ACCOUNT_SID"))
     has_twilio_token = bool(os.getenv("TWILIO_AUTH_TOKEN"))
+    has_google_sheets = bool(os.getenv("GOOGLE_SHEETS_SPREADSHEET_ID"))
+    has_smtp = bool(os.getenv("SMTP_EMAIL") and os.getenv("SMTP_PASSWORD"))
+
     return {
         "status": "healthy",
-        "openai_configured": has_openai,
+        "retell_configured": has_retell,
         "twilio_configured": has_twilio_sid and has_twilio_token,
+        "google_sheets_configured": has_google_sheets,
+        "smtp_configured": has_smtp,
     }
 
 
-# ── Voice: TwiML Webhook ────────────────────
-@app.post("/api/voice")
-async def voice_webhook(request: Request):
+# ── Retell: Inbound Call Webhook ─────────────
+@app.post("/api/retell/inbound")
+async def retell_inbound(request: Request):
     """
-    Twilio hits this when someone calls. Returns TwiML that:
-    1. Plays a brief greeting while the stream connects
-    2. Opens a Media Stream WebSocket to our /api/voice/ws
+    Retell calls this when an inbound call arrives on the imported Twilio number.
+    Returns dynamic variables injected into the prompt template per-call:
+    - current_date, current_time
+    - available_slots (generated time options)
+    - booked_slots_info (already-taken times)
+    - caller_phone
     """
-    # Parse Twilio form data to get caller number
-    form = await request.form()
-    caller = form.get("From", "unknown")
-
-    # Build the WebSocket URL from the request
-    host = request.headers.get("x-forwarded-host", request.headers.get("host", "localhost:8002"))
-    scheme = request.headers.get("x-forwarded-proto", "http")
-    ws_scheme = "wss" if scheme == "https" else "ws"
-    ws_url = f"{ws_scheme}://{host}/api/voice/ws"
-
-    logger.info(f"Voice webhook hit. Caller: {caller}, Media Stream URL: {ws_url}")
-
-    twiml = f"""<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Connect>
-        <Stream url="{ws_url}">
-            <Parameter name="caller" value="{caller}" />
-        </Stream>
-    </Connect>
-</Response>"""
-
-    return Response(content=twiml, media_type="application/xml")
+    from app.ava.voice_handler import handle_inbound_webhook
+    return await handle_inbound_webhook(request)
 
 
-# ── Voice: Fallback Handler ────────────────
-@app.post("/api/voice/fallback")
-async def voice_fallback(request: Request):
+# ── Retell: Call Lifecycle Webhook ───────────
+@app.post("/api/retell/webhook")
+async def retell_webhook(request: Request):
     """
-    Twilio hits this if the primary voice handler fails.
-    Returns a simple TwiML apology message.
+    Retell posts call lifecycle events here:
+    - call_started: when a call begins
+    - call_ended: when a call completes (includes transcript)
+    - call_analyzed: post-call analysis with extracted data
+
+    Used for logging, analytics, and partial data recovery
+    when callers drop before completing the flow.
     """
-    form = await request.form()
-    error_code = form.get("ErrorCode", "unknown")
-    error_url = form.get("ErrorUrl", "")
-    logger.error(f"Voice fallback triggered. ErrorCode={error_code}, ErrorUrl={error_url}")
-
-    twiml = """<?xml version="1.0" encoding="UTF-8"?>
-<Response>
-    <Say voice="alice">We're sorry, Ava is temporarily unavailable. Please try again shortly.</Say>
-    <Hangup/>
-</Response>"""
-    return Response(content=twiml, media_type="application/xml")
+    from app.ava.voice_handler import handle_retell_webhook
+    return await handle_retell_webhook(request)
 
 
-# ── Voice: Status Callback ─────────────────
-@app.post("/api/voice/status")
-async def voice_status(request: Request):
+# ── Retell: Custom Tool — Submit Waitlist ────
+@app.post("/api/retell/tools/submit-waitlist")
+async def retell_submit_waitlist(request: Request):
     """
-    Twilio posts call status changes here (ringing, in-progress, completed, etc.).
-    Used for logging/analytics.
+    Custom tool endpoint called by Retell's LLM when Ava has collected
+    all required data (name, email, role, clinic, preferred time).
+
+    Writes to Google Sheets and sends confirmation email.
+    Returns result to Retell which the LLM uses for its response.
     """
-    form = await request.form()
-    call_sid = form.get("CallSid", "")
-    call_status = form.get("CallStatus", "")
-    from_number = form.get("From", "")
-    duration = form.get("CallDuration", "0")
-
-    logger.info(f"Call status: {call_status} | SID={call_sid} | From={from_number} | Duration={duration}s")
-
-    return Response(content="<Response/>", media_type="application/xml")
-
-
-# ── Voice: WebSocket (Twilio <-> OpenAI Realtime) ──
-@app.websocket("/api/voice/ws")
-async def voice_websocket(ws: WebSocket):
-    """
-    WebSocket endpoint for Twilio Media Streams.
-    Bridges audio to/from OpenAI Realtime API.
-    """
-    from app.ava.voice_handler import handle_voice_websocket
-    await handle_voice_websocket(ws)
+    from app.ava.voice_handler import handle_submit_waitlist_tool
+    return await handle_submit_waitlist_tool(request)
 
 
 # ── Run ──────────────────────────────────────

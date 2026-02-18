@@ -1,8 +1,10 @@
 """
 Waitlist Submission Helper
-Writes collected caller data to Google Sheets and sends a booking email with Calendly link.
+Writes collected caller data to Google Sheets, creates a Cal.com booking,
+and sends a confirmation email with the Cal.com link.
 Used by the voice handler after Ava collects name, email, role, clinic name, and preferred time.
 """
+from __future__ import annotations
 
 import os
 import ssl
@@ -10,12 +12,18 @@ import logging
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import Optional
+from zoneinfo import ZoneInfo
+
+import httpx
 
 logger = logging.getLogger("ava.waitlist")
 
 # Google Sheets config
 _sheets_client = None
+
+CAL_BOOKING_URL = "https://cal.com/axis-founders/15min"
 
 
 def _get_sheets_client():
@@ -74,7 +82,57 @@ WAITLIST_HEADERS = [
     "Preferred Call Time",
     "Best Phone To Reach",
     "Source",
+    "Cal.com Booking",
+    "Transcript",
 ]
+
+
+def save_transcript(phone: str, transcript: str) -> bool:
+    """
+    Find the most recent row matching this phone number and write the transcript.
+    Called from the call_ended webhook after the full transcript is available.
+    """
+    _, spreadsheet = _get_sheets_client()
+    if spreadsheet is None:
+        logger.warning("Google Sheets not available — cannot save transcript")
+        return False
+
+    if not transcript:
+        return False
+
+    try:
+        import gspread
+
+        try:
+            worksheet = spreadsheet.worksheet("Ava Calls")
+        except gspread.WorksheetNotFound:
+            return False
+
+        # Find the row by phone number (column 4) — search from bottom up for most recent
+        phone_col = worksheet.col_values(4)
+        target_row = None
+        clean_phone = phone.replace("'", "")
+        for i in range(len(phone_col) - 1, 0, -1):
+            cell_val = phone_col[i].replace("'", "")
+            if cell_val == clean_phone:
+                target_row = i + 1  # 1-indexed
+                break
+
+        if target_row is None:
+            logger.warning(f"No row found for phone {phone} — cannot save transcript")
+            return False
+
+        # Transcript column is 11 (K) — expand sheet if needed
+        if worksheet.col_count < 11:
+            worksheet.resize(cols=12)
+            worksheet.update_cell(1, 11, "Transcript")
+        worksheet.update_cell(target_row, 11, transcript)
+        logger.info(f"Transcript saved for phone {phone} (row {target_row})")
+        return True
+
+    except Exception as e:
+        logger.error(f"Error saving transcript: {e}", exc_info=True)
+        return False
 
 
 def get_booked_slots() -> list[str]:
@@ -92,9 +150,7 @@ def get_booked_slots() -> list[str]:
         except gspread.WorksheetNotFound:
             return []
 
-        # Column 7 = "Preferred Call Time" (1-indexed)
         all_values = worksheet.col_values(7)
-        # Skip header row, filter empty and "declined" entries
         slots = [
             v for v in all_values[1:]
             if v and "declined" not in v.lower()
@@ -107,13 +163,135 @@ def get_booked_slots() -> list[str]:
         return []
 
 
+# ──────────────────────────────────────────────
+# CAL.COM API INTEGRATION
+# ──────────────────────────────────────────────
+def _parse_preferred_time(preferred_time: str) -> Optional[datetime]:
+    """
+    Attempt to parse the preferred_time string into a datetime.
+    Handles formats like:
+      - "Wednesday, February 19 at 10:00 AM Eastern"
+      - "February 19, 2026 at 2:30 PM"
+      - "Thursday at 3:00 PM"
+    Returns None if parsing fails.
+    """
+    import re
+
+    if not preferred_time or "declined" in preferred_time.lower():
+        return None
+
+    eastern = ZoneInfo("America/New_York")
+    now = datetime.now(tz=eastern)
+    clean = preferred_time.strip()
+
+    # Try common formats
+    formats = [
+        "%A, %B %d at %I:%M %p",       # Wednesday, February 19 at 10:00 AM
+        "%B %d at %I:%M %p",           # February 19 at 10:00 AM
+        "%A, %B %d, %Y at %I:%M %p",   # Wednesday, February 19, 2026 at 10:00 AM
+        "%B %d, %Y at %I:%M %p",       # February 19, 2026 at 10:00 AM
+    ]
+
+    # Strip timezone suffix
+    clean_no_tz = re.sub(r'\s*(Eastern|EST|EDT|ET)\s*$', '', clean, flags=re.IGNORECASE)
+
+    for fmt in formats:
+        try:
+            parsed = datetime.strptime(clean_no_tz, fmt)
+            if parsed.year == 1900:
+                parsed = parsed.replace(year=now.year)
+            return parsed.replace(tzinfo=eastern)
+        except ValueError:
+            continue
+
+    logger.warning(f"Could not parse preferred_time: '{preferred_time}'")
+    return None
+
+
+async def _create_cal_booking(
+    full_name: str,
+    email: str,
+    preferred_time: str,
+    clinic_name: str = "",
+) -> Optional[str]:
+    """
+    Create a booking on Cal.com via their API.
+    Returns the booking URL if successful, None otherwise.
+    """
+    cal_api_key = os.getenv("CAL_API_KEY", "")
+    cal_event_type_id = os.getenv("CAL_EVENT_TYPE_ID", "")
+
+    if not cal_api_key or not cal_event_type_id:
+        logger.warning("Cal.com API not configured (CAL_API_KEY or CAL_EVENT_TYPE_ID missing)")
+        return None
+
+    parsed_time = _parse_preferred_time(preferred_time)
+    if not parsed_time:
+        logger.warning(f"Cannot create Cal.com booking — could not parse time: {preferred_time}")
+        return None
+
+    # Convert to ISO format for Cal.com API
+    start_iso = parsed_time.isoformat()
+
+    try:
+        event_type_id = int(cal_event_type_id)
+    except ValueError:
+        logger.error(f"CAL_EVENT_TYPE_ID is not a valid integer: {cal_event_type_id}")
+        return None
+
+    payload = {
+        "eventTypeId": event_type_id,
+        "start": start_iso,
+        "responses": {
+            "name": full_name,
+            "email": email,
+            "notes": f"Clinic: {clinic_name}" if clinic_name else "",
+        },
+        "metadata": {
+            "source": "ava-voice-call",
+            "clinic": clinic_name,
+        },
+        "timeZone": "America/New_York",
+        "language": "en",
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                f"https://api.cal.com/v1/bookings?apiKey={cal_api_key}",
+                json=payload,
+                headers={"Content-Type": "application/json"},
+            )
+
+            if resp.status_code in (200, 201):
+                data = resp.json()
+                booking_uid = data.get("uid", "")
+                booking_id = data.get("id", "")
+                logger.info(
+                    f"Cal.com booking created: id={booking_id}, uid={booking_uid}, "
+                    f"time={preferred_time}, email={email}"
+                )
+                return f"https://cal.com/booking/{booking_uid}" if booking_uid else CAL_BOOKING_URL
+            else:
+                logger.error(
+                    f"Cal.com booking failed: status={resp.status_code}, "
+                    f"body={resp.text[:500]}"
+                )
+                return None
+
+    except Exception as e:
+        logger.error(f"Cal.com API error: {e}", exc_info=True)
+        return None
+
+
 async def submit_to_waitlist(data: dict, phone: str = "") -> bool:
     """
-    Write caller data to Google Sheets and send booking email with Calendly link.
+    Write caller data to Google Sheets, create Cal.com booking,
+    and send confirmation email.
 
     Args:
         data: Dict with keys: fullName, email, role, clinicName, preferredTime
-        phone: Caller's phone number (from Twilio)
+        phone: Caller's phone number
 
     Returns:
         True if write succeeded, False otherwise.
@@ -127,17 +305,31 @@ async def submit_to_waitlist(data: dict, phone: str = "") -> bool:
 
     logger.info(f"Submitting waitlist: {full_name} ({email}), clinic={clinic_name}, time={preferred_time}")
 
-    # 1) Write to Google Sheets
-    sheets_ok = _write_to_sheets(full_name, email, phone, role, clinic_name, preferred_time, best_phone)
+    # 1) Try to create Cal.com booking
+    cal_booking_url = await _create_cal_booking(full_name, email, preferred_time, clinic_name)
+    if cal_booking_url:
+        logger.info(f"Cal.com booking created: {cal_booking_url}")
+    else:
+        logger.info("Cal.com booking skipped or failed — continuing with sheet + email")
+        cal_booking_url = ""
 
-    # 2) Send confirmation email
+    # 2) Write to Google Sheets
+    sheets_ok = _write_to_sheets(
+        full_name, email, phone, role, clinic_name,
+        preferred_time, best_phone, cal_booking_url,
+    )
+
+    # 3) Send confirmation email
     if email:
-        _send_confirmation_email(full_name, email, preferred_time, clinic_name)
+        _send_confirmation_email(full_name, email, preferred_time, clinic_name, cal_booking_url)
 
     return sheets_ok
 
 
-def _write_to_sheets(full_name, email, phone, role, clinic_name, preferred_time, best_phone="") -> bool:
+def _write_to_sheets(
+    full_name, email, phone, role, clinic_name,
+    preferred_time, best_phone="", cal_booking_url="",
+) -> bool:
     """Write a row to the Ava Calls sheet."""
     _, spreadsheet = _get_sheets_client()
     if spreadsheet is None:
@@ -150,9 +342,8 @@ def _write_to_sheets(full_name, email, phone, role, clinic_name, preferred_time,
         try:
             worksheet = spreadsheet.worksheet("Ava Calls")
         except gspread.WorksheetNotFound:
-            worksheet = spreadsheet.add_worksheet(title="Ava Calls", rows=1000, cols=10)
+            worksheet = spreadsheet.add_worksheet(title="Ava Calls", rows=1000, cols=11)
 
-        # Ensure headers
         try:
             existing = worksheet.row_values(1)
             if not existing or existing != WAITLIST_HEADERS:
@@ -162,8 +353,8 @@ def _write_to_sheets(full_name, email, phone, role, clinic_name, preferred_time,
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         phone_value = f"'{phone}" if phone else ""
-
         best_phone_value = f"'{best_phone}" if best_phone else ""
+
         row = [
             timestamp,
             full_name,
@@ -174,6 +365,7 @@ def _write_to_sheets(full_name, email, phone, role, clinic_name, preferred_time,
             preferred_time,
             best_phone_value,
             "voice-call",
+            cal_booking_url,
         ]
 
         worksheet.append_row(row, value_input_option="USER_ENTERED")
@@ -185,8 +377,14 @@ def _write_to_sheets(full_name, email, phone, role, clinic_name, preferred_time,
         return False
 
 
-def _send_confirmation_email(full_name: str, to_email: str, preferred_time: str, clinic_name: str):
-    """Send a simple confirmation email — no links, just name + clinic + date/time."""
+def _send_confirmation_email(
+    full_name: str,
+    to_email: str,
+    preferred_time: str,
+    clinic_name: str,
+    cal_booking_url: str = "",
+):
+    """Send a confirmation email with Cal.com booking link."""
     smtp_email = os.getenv("SMTP_EMAIL", "")
     smtp_password = os.getenv("SMTP_PASSWORD", "")
     smtp_host = os.getenv("SMTP_HOST", "smtp.gmail.com")
@@ -198,13 +396,14 @@ def _send_confirmation_email(full_name: str, to_email: str, preferred_time: str,
 
     first_name = full_name.split()[0] if full_name else "there"
 
+    reschedule_url = cal_booking_url or CAL_BOOKING_URL
+
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"Confirmed: Your Axis Demo — {preferred_time}"
     msg["From"] = f"Axis <{smtp_email}>"
     msg["To"] = to_email
     msg["Reply-To"] = "sales@useaxis.app"
 
-    # Plain text fallback
     text = f"""Hi {first_name},
 
 Your demo with the Axis founders is confirmed!
@@ -219,13 +418,13 @@ What to expect:
 - Q&A — pricing, integrations, anything you need
 - No commitment, no pressure
 
-Need to reschedule? Just reply to this email.
+Need to reschedule? Use this link: {reschedule_url}
+Or reply to this email.
 
 See you soon,
 The Axis Team
 """
 
-    # HTML email template
     html = f"""\
 <!DOCTYPE html>
 <html>
@@ -236,7 +435,7 @@ The Axis Team
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08);">
 
-          <!-- Header with Logo -->
+          <!-- Header -->
           <tr>
             <td style="background-color:#2563EB; padding: 32px 40px; text-align:center;">
               <table cellpadding="0" cellspacing="0" style="margin: 0 auto;">
@@ -267,7 +466,7 @@ The Axis Team
                 Hi {first_name}, you're all set! Here are your details.
               </p>
 
-              <!-- Appointment Details Card -->
+              <!-- Appointment Details -->
               <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#eff6ff; border-radius:8px; margin-bottom:28px;">
                 <tr>
                   <td style="padding: 24px;">
@@ -301,7 +500,17 @@ The Axis Team
                 </tr>
               </table>
 
-              <!-- Divider -->
+              <!-- Reschedule Button -->
+              <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  <td align="center">
+                    <a href="{reschedule_url}" style="display:inline-block; padding:12px 28px; background-color:#2563EB; color:#ffffff; font-size:14px; font-weight:600; text-decoration:none; border-radius:8px;">
+                      Reschedule or Cancel
+                    </a>
+                  </td>
+                </tr>
+              </table>
+
               <hr style="border:none; border-top:1px solid #e5e7eb; margin:0 0 24px 0;">
 
               <!-- What to expect -->
@@ -319,7 +528,7 @@ The Axis Team
               </table>
 
               <p style="margin:0; font-size:14px; color:#6b7280; line-height:1.5;">
-                Need to reschedule? Just reply to this email.
+                Questions? Reply to this email or call us at (628) 200-4122.
               </p>
             </td>
           </tr>

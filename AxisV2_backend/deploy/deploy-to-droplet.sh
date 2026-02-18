@@ -30,8 +30,16 @@ rsync -avz --delete \
   ./ "root@${DROPLET_IP}:${REMOTE_DIR}/"
 
 echo ""
-echo "Setting ownership and restarting ava-server..."
-ssh "root@${DROPLET_IP}" "chown -R ava:ava ${REMOTE_DIR} && systemctl restart ava-server && systemctl status ava-server --no-pager"
+echo "Installing dependencies and restarting ava-server..."
+ssh "root@${DROPLET_IP}" <<'REMOTE_CMDS'
+cd /home/ava/ava_server
+chown -R ava:ava /home/ava/ava_server
+source venv/bin/activate
+pip install -r requirements.txt --quiet
+systemctl restart ava-server
+sleep 2
+systemctl status ava-server --no-pager
+REMOTE_CMDS
 
 echo ""
 echo "=== Deploy complete ==="

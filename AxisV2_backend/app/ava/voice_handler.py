@@ -1,359 +1,354 @@
 """
-Voice Handler — Twilio Media Streams <-> OpenAI Realtime API
-Bridges inbound Twilio calls to OpenAI's Realtime API for ultra-fast (~170ms) voice responses.
+Voice Handler — Retell AI Webhooks & Custom Tool Handlers
 
-Flow:
-1. Twilio receives call -> hits /api/voice -> returns TwiML with <Connect><Stream>
-2. Twilio opens WebSocket to /api/voice/ws
-3. This handler opens a parallel WebSocket to OpenAI Realtime API
-4. Audio is bridged bidirectionally: Twilio (g711_ulaw) <-> OpenAI Realtime (g711_ulaw)
-5. When Ava collects all intake answers, she calls submit_waitlist function -> Google Sheets
+Replaces the old Twilio Media Streams <-> OpenAI Realtime API bridge.
+Now Retell manages all orchestration (STT, LLM, TTS, turn-taking, interruptions).
+
+Endpoints handled:
+  POST /api/retell/inbound      — Inbound call webhook (returns dynamic variables)
+  POST /api/retell/webhook      — Call lifecycle events (started, ended, analyzed)
+  POST /api/retell/tools/submit-waitlist — Custom tool for data submission
 """
+
+from __future__ import annotations
 
 import os
 import json
-import asyncio
 import logging
-import websockets
-from fastapi import WebSocket, WebSocketDisconnect
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
-from app.ava.prompts import get_voice_system_prompt, SUBMIT_WAITLIST_TOOL_REALTIME
-from app.ava.waitlist_submit import submit_to_waitlist, get_booked_slots
+from fastapi import Request, Response
+from fastapi.responses import JSONResponse
+
+from app.ava.prompts import get_dynamic_variables
+from app.ava.waitlist_submit import submit_to_waitlist, get_booked_slots, save_transcript
 
 logger = logging.getLogger("ava.voice")
 
-OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17"
 
-
-class _SessionState:
-    """Mutable state shared between the two async tasks."""
-    def __init__(self):
-        self.stream_sid: str = ""
-        self.caller_phone: str = ""
-        self.waitlist_submitted: bool = False
-        self.booked_slots: list[str] = []
-
-
-async def handle_voice_websocket(ws: WebSocket, caller_phone: str = ""):
+def _verify_retell_signature(request: Request, body: bytes) -> bool:
     """
-    Main WebSocket handler. Called when Twilio opens a Media Stream connection.
-    Bridges audio between Twilio and OpenAI Realtime API.
+    Verify the Retell webhook signature using the API key.
+    Returns True if valid, False otherwise.
     """
-    await ws.accept()
-    logger.info("Twilio Media Stream connected")
+    api_key = os.getenv("RETELL_API_KEY", "")
+    signature = request.headers.get("x-retell-signature", "")
 
-    openai_api_key = os.getenv("OPENAI_API_KEY", "")
-    if not openai_api_key:
-        logger.error("OPENAI_API_KEY not set")
-        await ws.close(code=1011, reason="Server misconfigured")
-        return
-
-    state = _SessionState()
-    state.caller_phone = caller_phone
-    openai_ws = None
+    if not api_key or not signature:
+        logger.warning("Missing API key or signature for webhook verification")
+        return False
 
     try:
-        # Connect to OpenAI Realtime API
-        openai_ws = await websockets.connect(
-            OPENAI_REALTIME_URL,
-            extra_headers={
-                "Authorization": f"Bearer {openai_api_key}",
-                "OpenAI-Beta": "realtime=v1",
-            },
-            ping_interval=20,
-            ping_timeout=20,
+        from retell import Retell
+        return Retell.verify(
+            body.decode("utf-8"),
+            api_key=api_key,
+            signature=signature,
         )
-        logger.info("Connected to OpenAI Realtime API")
-
-        # Fetch already-booked slots from Google Sheets
-        booked_slots = get_booked_slots()
-        state.booked_slots = booked_slots
-        logger.info(f"Booked slots for this session: {booked_slots}")
-
-        # Configure session: g711_ulaw audio, voice, system prompt, and tools
-        session_config = {
-            "type": "session.update",
-            "session": {
-                "modalities": ["text", "audio"],
-                "instructions": get_voice_system_prompt(booked_slots=booked_slots),
-                "voice": "shimmer",  # feminine, clear; use a more assertive voice when available if desired
-                "input_audio_format": "g711_ulaw",
-                "output_audio_format": "g711_ulaw",
-                "input_audio_transcription": {
-                    "model": "whisper-1",
-                },
-                "turn_detection": {
-                    "type": "server_vad",
-                    "threshold": 0.65,
-                    "prefix_padding_ms": 350,
-                    "silence_duration_ms": 700,
-                },
-                "temperature": 0.6,
-                "max_response_output_tokens": 512,
-                "tools": [SUBMIT_WAITLIST_TOOL_REALTIME],
-                "tool_choice": "auto",
-            },
-        }
-        await openai_ws.send(json.dumps(session_config))
-        logger.info("OpenAI session configured with submit_waitlist tool")
-
-        # Wait for session.updated before triggering initial greeting
-        while True:
-            init_msg = await openai_ws.recv()
-            init_data = json.loads(init_msg)
-            init_type = init_data.get("type", "")
-            logger.info(f"OpenAI init event: {init_type}")
-            if init_type == "session.updated":
-                break
-            if init_type == "error":
-                logger.error(f"OpenAI session error: {init_data}")
-                await ws.close(code=1011, reason="OpenAI session error")
-                return
-
-        # Trigger Ava's initial greeting
-        await openai_ws.send(json.dumps({"type": "response.create"}))
-        logger.info("Triggered initial Ava greeting via response.create")
-
-        # Run both directions concurrently
-        await asyncio.gather(
-            _twilio_to_openai(ws, openai_ws, state),
-            _openai_to_twilio(ws, openai_ws, state),
-        )
-
-    except WebSocketDisconnect:
-        logger.info("Twilio Media Stream disconnected")
-    except websockets.exceptions.ConnectionClosed as e:
-        logger.warning(f"OpenAI WebSocket closed: {e}")
+    except ImportError:
+        logger.warning("retell-sdk not installed, skipping signature verification")
+        return True
     except Exception as e:
-        logger.error(f"Voice handler error: {e}", exc_info=True)
-    finally:
-        if openai_ws and not openai_ws.closed:
-            await openai_ws.close()
-            logger.info("OpenAI WebSocket closed")
+        logger.error(f"Signature verification failed: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────
+# INBOUND CALL WEBHOOK
+# ──────────────────────────────────────────────
+async def handle_inbound_webhook(request: Request) -> JSONResponse:
+    """
+    Called by Retell when an inbound call arrives on the imported Twilio number.
+    Returns dynamic variables that get injected into the prompt template.
+
+    This is where we inject:
+    - Current date/time
+    - Available time slots
+    - Already-booked time slots
+    - Caller's phone number
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        data = {}
+
+    caller_phone = data.get("from_number", "unknown")
+    logger.info(f"Inbound call webhook: caller={caller_phone}")
+
+    # Build dynamic variables FAST — no blocking API calls here.
+    # Booked slots are fetched later when the submit_waitlist tool is called,
+    # not on every inbound call. This keeps the webhook response instant
+    # so Retell connects the call and plays the greeting immediately.
+    dynamic_vars = get_dynamic_variables(
+        caller_phone=caller_phone,
+        booked_slots=None,
+    )
+
+    logger.info(f"Dynamic variables set: {list(dynamic_vars.keys())}")
+
+    return JSONResponse(
+        content={"dynamic_variables": dynamic_vars},
+        status_code=200,
+    )
+
+
+# ──────────────────────────────────────────────
+# CUSTOM TOOL: submit_waitlist
+# ──────────────────────────────────────────────
+async def handle_submit_waitlist_tool(request: Request) -> JSONResponse:
+    """
+    Custom tool endpoint called by Retell when the LLM invokes submit_waitlist.
+    Receives the collected data and writes to Google Sheets + sends email.
+
+    Retell sends POST with JSON body containing the tool arguments.
+    """
+    try:
+        data = await request.json()
+    except Exception as e:
+        logger.error(f"Failed to parse submit_waitlist request: {e}")
+        return JSONResponse(
+            content={"success": False, "error": "Invalid request format"},
+            status_code=400,
+        )
+
+    # Extract arguments — Retell may nest under "args" or send at root
+    args = data.get("args", data)
+
+    full_name = args.get("fullName", "")
+    email = args.get("email", "")
+    role = args.get("role", "")
+    clinic_name = args.get("clinicName", "")
+    preferred_time = args.get("preferredTime", "")
+    best_phone = args.get("bestPhone", "")
+
+    logger.info(
+        f"submit_waitlist tool called: name={full_name}, email={email}, "
+        f"role={role}, clinic={clinic_name}, time={preferred_time}"
+    )
+
+    if not full_name or not email:
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Missing required fields. Ask the caller for their full name and email before submitting.",
+            },
+            status_code=200,
+        )
+
+    # Check for time conflicts with booked slots
+    booked_slots = get_booked_slots()
+    if preferred_time and _is_time_conflict(preferred_time, booked_slots):
+        logger.warning(f"Time conflict detected: {preferred_time} is already booked")
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": (
+                    f"The time '{preferred_time}' is already booked. "
+                    "Ask the caller to pick a different time."
+                ),
+            },
+            status_code=200,
+        )
+
+    # Submit to Google Sheets + send confirmation email
+    waitlist_data = {
+        "fullName": full_name,
+        "email": email,
+        "role": role,
+        "clinicName": clinic_name,
+        "preferredTime": preferred_time,
+        "bestPhone": best_phone,
+    }
+
+    success = await submit_to_waitlist(waitlist_data, phone=best_phone)
+
+    if success:
+        logger.info(f"Waitlist submission successful for {email}")
+        return JSONResponse(
+            content={
+                "success": True,
+                "message": (
+                    "Waitlist submission successful. Tell the caller they're all set "
+                    "and the Axis founders will reach out to confirm their demo."
+                ),
+            },
+            status_code=200,
+        )
+    else:
+        logger.error(f"Waitlist submission failed for {email}")
+        return JSONResponse(
+            content={
+                "success": False,
+                "message": "Submission had an issue but we captured the info. Reassure the caller that the team will follow up.",
+            },
+            status_code=200,
+        )
+
+
+# ──────────────────────────────────────────────
+# RETELL WEBHOOK — Call Lifecycle Events
+# ──────────────────────────────────────────────
+async def handle_retell_webhook(request: Request) -> Response:
+    """
+    Receives Retell webhook events for call lifecycle.
+
+    Events:
+    - call_started: Log the call
+    - call_ended: Log duration, check for partial data recovery
+    - call_analyzed: Post-call analysis with extracted data
+    """
+    body = await request.body()
+
+    # Verify webhook signature in production
+    if os.getenv("VERIFY_RETELL_WEBHOOK", "false").lower() == "true":
+        if not _verify_retell_signature(request, body):
+            logger.warning("Invalid webhook signature — rejecting")
+            return Response(status_code=401)
+
+    try:
+        data = json.loads(body)
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON in webhook request")
+        return Response(status_code=400)
+
+    event = data.get("event", "")
+
+    if event == "call_started":
+        _handle_call_started(data)
+    elif event == "call_ended":
+        await _handle_call_ended(data)
+    elif event == "call_analyzed":
+        await _handle_call_analyzed(data)
+    else:
+        logger.info(f"Unhandled webhook event: {event}")
+
+    return Response(status_code=204)
+
+
+def _handle_call_started(data: dict):
+    """Log when a call starts."""
+    call = data.get("call", data.get("data", {}))
+    call_id = call.get("call_id", "unknown")
+    from_number = call.get("from_number", "unknown")
+    agent_id = call.get("agent_id", "unknown")
+
+    logger.info(
+        f"Call started: id={call_id}, from={from_number}, agent={agent_id}"
+    )
+
+
+async def _handle_call_ended(data: dict):
+    """
+    Log when a call ends. If the call was short or dropped,
+    attempt partial data recovery from the transcript.
+    """
+    call = data.get("call", data.get("data", {}))
+    call_id = call.get("call_id", "unknown")
+    from_number = call.get("from_number", "unknown")
+    duration_ms = call.get("call_duration_ms", 0)
+    end_reason = call.get("disconnection_reason", "unknown")
+    call_status = call.get("call_status", "unknown")
+
+    duration_s = duration_ms / 1000 if duration_ms else 0
+
+    logger.info(
+        f"Call ended: id={call_id}, from={from_number}, "
+        f"duration={duration_s:.1f}s, reason={end_reason}, status={call_status}"
+    )
+
+    # Save transcript to Google Sheets
+    transcript = call.get("transcript", "")
+    if transcript and from_number and from_number != "unknown":
+        logger.info(f"Saving transcript for call {call_id} ({len(transcript)} chars)")
         try:
-            await ws.close()
-        except Exception:
-            pass
+            save_transcript(from_number, transcript)
+        except Exception as e:
+            logger.error(f"Failed to save transcript: {e}")
+    elif transcript:
+        logger.info(f"Call transcript (id={call_id}): {transcript[:500]}...")
 
 
-async def _twilio_to_openai(twilio_ws: WebSocket, openai_ws, state: _SessionState):
+async def _handle_call_analyzed(data: dict):
     """
-    Receives audio from Twilio Media Stream and forwards to OpenAI Realtime API.
-    Twilio sends JSON messages with base64-encoded g711_ulaw audio chunks.
+    Handle post-call analysis results.
+    If a demo was NOT booked but we have partial data (name + phone),
+    submit for follow-up.
     """
-    try:
-        while True:
-            message = await twilio_ws.receive_text()
-            data = json.loads(message)
-            event_type = data.get("event")
+    call = data.get("call", data.get("data", {}))
+    call_id = call.get("call_id", "unknown")
+    from_number = call.get("from_number", "unknown")
 
-            if event_type == "start":
-                state.stream_sid = data["start"]["streamSid"]
-                # Try to capture caller phone from custom parameters
-                params = data["start"].get("customParameters", {})
-                if params.get("caller"):
-                    state.caller_phone = params["caller"]
-                logger.info(f"Twilio stream started: {state.stream_sid}, caller: {state.caller_phone}")
+    analysis = call.get("call_analysis", {})
+    custom_data = analysis.get("custom_analysis_data", {})
 
-            elif event_type == "media":
-                # Forward audio to OpenAI Realtime API
-                audio_payload = data["media"]["payload"]  # base64 g711_ulaw
-                audio_event = {
-                    "type": "input_audio_buffer.append",
-                    "audio": audio_payload,
-                }
-                if not openai_ws.closed:
-                    await openai_ws.send(json.dumps(audio_event))
+    caller_name = custom_data.get("caller_name", "")
+    caller_email = custom_data.get("caller_email", "")
+    caller_role = custom_data.get("caller_role", "")
+    clinic_name = custom_data.get("clinic_name", "")
+    demo_booked = custom_data.get("demo_booked", False)
+    call_outcome = custom_data.get("call_outcome", "")
 
-            elif event_type == "stop":
-                logger.info("Twilio stream stopped")
-                break
+    summary = analysis.get("call_summary", "")
+    successful = analysis.get("call_successful", False)
 
-    except WebSocketDisconnect:
-        logger.info("Twilio disconnected in twilio_to_openai")
-    except Exception as e:
-        logger.error(f"Error in twilio_to_openai: {e}", exc_info=True)
+    logger.info(
+        f"Call analyzed: id={call_id}, outcome={call_outcome}, "
+        f"demo_booked={demo_booked}, successful={successful}"
+    )
+    if summary:
+        logger.info(f"Call summary: {summary}")
 
-
-async def _openai_to_twilio(twilio_ws: WebSocket, openai_ws, state: _SessionState):
-    """
-    Receives audio and events from OpenAI Realtime API and forwards audio to Twilio.
-    Also handles function calls (submit_waitlist) and sends results back to OpenAI.
-    """
-    try:
-        async for message in openai_ws:
-            data = json.loads(message)
-            event_type = data.get("type", "")
-
-            if event_type == "session.created":
-                logger.info("OpenAI Realtime session created")
-
-            elif event_type == "session.updated":
-                logger.info("OpenAI Realtime session updated")
-
-            elif event_type == "response.created":
-                logger.info("OpenAI response started generating")
-
-            elif event_type == "response.done":
-                logger.info("OpenAI response complete")
-
-            elif event_type == "response.audio.delta":
-                # Forward audio chunk to Twilio
-                audio_delta = data.get("delta", "")
-                if audio_delta:
-                    twilio_message = {
-                        "event": "media",
-                        "streamSid": state.stream_sid,
-                        "media": {
-                            "payload": audio_delta,
-                        },
-                    }
-                    try:
-                        await twilio_ws.send_json(twilio_message)
-                    except Exception:
-                        break
-
-            elif event_type == "response.audio.done":
-                logger.debug("OpenAI audio response complete")
-
-            elif event_type == "response.audio_transcript.done":
-                transcript = data.get("transcript", "")
-                logger.info(f"Ava said: {transcript}")
-
-            elif event_type == "input_audio_buffer.speech_started":
-                logger.debug("Caller started speaking")
-                # Send clear message to Twilio to stop current playback (barge-in)
-                clear_message = {
-                    "event": "clear",
-                    "streamSid": state.stream_sid,
-                }
-                try:
-                    await twilio_ws.send_json(clear_message)
-                except Exception:
-                    pass
-
-            elif event_type == "conversation.item.input_audio_transcription.completed":
-                transcript = data.get("transcript", "")
-                logger.info(f"Caller said: {transcript}")
-
-            elif event_type == "response.function_call_arguments.done":
-                # OpenAI wants to call submit_waitlist
-                call_id = data.get("call_id", "")
-                fn_name = data.get("name", "")
-                fn_args_str = data.get("arguments", "{}")
-
-                logger.info(f"Function call: {fn_name} (call_id={call_id})")
-
-                if fn_name == "submit_waitlist":
-                    if state.waitlist_submitted:
-                        logger.info("submit_waitlist already called this session — returning cached success")
-                        await _send_function_result(
-                            openai_ws, call_id,
-                            json.dumps({"success": True, "message": "Already submitted. Tell the caller they're all set."})
-                        )
-                    else:
-                        await _handle_submit_waitlist(
-                            openai_ws, call_id, fn_args_str, state.caller_phone, state
-                        )
-                else:
-                    # Unknown function — return error
-                    await _send_function_result(
-                        openai_ws, call_id,
-                        json.dumps({"success": False, "error": f"Unknown function: {fn_name}"})
-                    )
-
-            elif event_type == "error":
-                error_info = data.get("error", {})
-                logger.error(f"OpenAI Realtime error: {error_info}")
-
-    except websockets.exceptions.ConnectionClosed:
-        logger.info("OpenAI WebSocket closed in openai_to_twilio")
-    except Exception as e:
-        logger.error(f"Error in openai_to_twilio: {e}", exc_info=True)
+    # If demo was NOT booked and we have at least a name,
+    # submit partial data for follow-up
+    if not demo_booked and caller_name and from_number:
+        logger.info(
+            f"Partial data recovery for call {call_id}: "
+            f"name={caller_name}, phone={from_number}"
+        )
+        partial_data = {
+            "fullName": caller_name,
+            "email": caller_email or "",
+            "role": caller_role or "unknown",
+            "clinicName": clinic_name or "not provided",
+            "preferredTime": f"call dropped - {call_outcome or 'follow up needed'}",
+            "bestPhone": "",
+        }
+        try:
+            await submit_to_waitlist(partial_data, phone=from_number)
+            logger.info(f"Partial data submitted for follow-up: {caller_name}")
+        except Exception as e:
+            logger.error(f"Failed to submit partial data: {e}")
 
 
+# ──────────────────────────────────────────────
+# HELPERS
+# ──────────────────────────────────────────────
 def _is_time_conflict(preferred_time: str, booked_slots: list[str]) -> bool:
     """Check if the preferred time conflicts with any already-booked slot."""
     if not preferred_time or not booked_slots:
         return False
-    # Normalize for comparison: lowercase, strip whitespace
+
+    import re
+
     norm = preferred_time.lower().strip()
     for slot in booked_slots:
         slot_norm = slot.lower().strip()
-        # Exact match
         if norm == slot_norm:
             return True
-        # Partial match — if key parts overlap (date + time substring)
-        # Extract just digits and am/pm for fuzzy time matching
-        import re
         norm_nums = re.findall(r'\d+:\d+\s*[ap]m', norm)
         slot_nums = re.findall(r'\d+:\d+\s*[ap]m', slot_norm)
         if norm_nums and slot_nums and norm_nums[0] == slot_nums[0]:
-            # Same time — check if same date keywords overlap
-            # Extract month+day numbers
-            norm_dates = re.findall(r'(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+', norm)
-            slot_dates = re.findall(r'(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+\d+', slot_norm)
+            norm_dates = re.findall(
+                r'(?:january|february|march|april|may|june|july|august|'
+                r'september|october|november|december)\s+\d+',
+                norm,
+            )
+            slot_dates = re.findall(
+                r'(?:january|february|march|april|may|june|july|august|'
+                r'september|october|november|december)\s+\d+',
+                slot_norm,
+            )
             if norm_dates and slot_dates and norm_dates[0] == slot_dates[0]:
                 return True
     return False
-
-
-async def _handle_submit_waitlist(openai_ws, call_id: str, args_str: str, phone: str, state: _SessionState):
-    """Handle the submit_waitlist function call from OpenAI."""
-    try:
-        args = json.loads(args_str)
-        preferred_time = args.get("preferredTime", "")
-        logger.info(f"Submitting waitlist: {args.get('fullName')} / {args.get('email')} / time={preferred_time}")
-
-        # Code-level check: reject if time conflicts with an existing booking
-        if _is_time_conflict(preferred_time, state.booked_slots):
-            logger.warning(f"Time conflict detected: {preferred_time} is already booked")
-            result = {
-                "success": False,
-                "error": f"The time '{preferred_time}' is already booked. Ask the caller to pick a different time."
-            }
-            await _send_function_result(openai_ws, call_id, json.dumps(result))
-            return
-
-        success = await submit_to_waitlist(args, phone=phone)
-
-        if success:
-            state.waitlist_submitted = True
-            result = {"success": True, "message": "Waitlist submission successful. Tell the caller they're all set."}
-        else:
-            result = {"success": False, "message": "Submission had an issue but we captured the info. Reassure the caller."}
-
-        await _send_function_result(openai_ws, call_id, json.dumps(result))
-
-    except json.JSONDecodeError as e:
-        logger.error(f"Invalid JSON in function args: {e}")
-        await _send_function_result(
-            openai_ws, call_id,
-            json.dumps({"success": False, "error": "Invalid data format"})
-        )
-    except Exception as e:
-        logger.error(f"Error handling submit_waitlist: {e}", exc_info=True)
-        await _send_function_result(
-            openai_ws, call_id,
-            json.dumps({"success": False, "error": str(e)})
-        )
-
-
-async def _send_function_result(openai_ws, call_id: str, output: str):
-    """Send function call result back to OpenAI Realtime API and trigger a response."""
-    # Send the function output
-    result_event = {
-        "type": "conversation.item.create",
-        "item": {
-            "type": "function_call_output",
-            "call_id": call_id,
-            "output": output,
-        },
-    }
-    await openai_ws.send(json.dumps(result_event))
-
-    # Ask OpenAI to generate a response based on the function result
-    response_event = {
-        "type": "response.create",
-    }
-    await openai_ws.send(json.dumps(response_event))

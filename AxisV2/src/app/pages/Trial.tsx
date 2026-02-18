@@ -41,7 +41,10 @@ export function Trial() {
 
   useEffect(() => {
     const handler = (e: MessageEvent) => {
-      if (e.origin === 'https://calendly.com' && e.data?.event === 'calendly.event_scheduled') {
+      if (
+        (e.origin === 'https://cal.com' && e.data?.type === 'booking_successful') ||
+        (e.origin === 'https://cal.com' && e.data?.type === '__routeChanged')
+      ) {
         setCalScheduled(true);
       }
     };
@@ -702,9 +705,9 @@ export function Trial() {
               Pick a time that works for you. We'll walk you through the dashboard and show you how Axis solves your clinic's problems.
             </p>
             <iframe
-              src="https://calendly.com/axis-founders/15min?embed_domain=useaxis.app&embed_type=Inline"
+              src="https://cal.com/axis-founders/15min?embed=true&layout=month_view&theme=light"
               style={{ width: '100%', minWidth: '320px', height: '660px', border: 'none' }}
-              title="Book a walkthrough on Calendly"
+              title="Book a walkthrough"
             />
           </div>
 
