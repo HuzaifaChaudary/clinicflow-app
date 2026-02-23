@@ -1,23 +1,29 @@
 """
-Voice Handler — Retell AI Webhooks & Custom Tool Handlers
+Voice Handler — ElevenLabs Conversational AI + Twilio
 
-Replaces the old Twilio Media Streams <-> OpenAI Realtime API bridge.
-Now Retell manages all orchestration (STT, LLM, TTS, turn-taking, interruptions).
+Architecture:
+  Twilio (phone) → POST /api/voice/inbound (our server)
+  → ElevenLabs register-call API (returns TwiML to Twilio)
+  → ElevenLabs takes over: Scribe v2 Realtime STT (~150ms) + GPT-4.1 LLM + Flash v2.5 TTS (~75ms)
+  → Tool calls hit: POST /api/elevenlabs/tools/submit-waitlist
+  → Post-call analysis hits: POST /api/elevenlabs/webhook
 
 Endpoints handled:
-  POST /api/retell/inbound      — Inbound call webhook (returns dynamic variables)
-  POST /api/retell/webhook      — Call lifecycle events (started, ended, analyzed)
-  POST /api/retell/tools/submit-waitlist — Custom tool for data submission
+  POST /api/voice/inbound                     — Twilio inbound call → returns TwiML
+  POST /api/elevenlabs/tools/submit-waitlist  — ElevenLabs server tool call
+  POST /api/elevenlabs/webhook                — Post-call transcript & analysis
 """
 
 from __future__ import annotations
 
 import os
+import re
 import json
+import hmac
+import hashlib
 import logging
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
+import httpx
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
 
@@ -26,132 +32,181 @@ from app.ava.waitlist_submit import submit_to_waitlist, get_booked_slots, save_t
 
 logger = logging.getLogger("ava.voice")
 
+ELEVENLABS_API_URL = "https://api.elevenlabs.io/v1"
 
-def _verify_retell_signature(request: Request, body: bytes) -> bool:
-    """
-    Verify the Retell webhook signature using the API key.
-    Returns True if valid, False otherwise.
-    """
-    api_key = os.getenv("RETELL_API_KEY", "")
-    signature = request.headers.get("x-retell-signature", "")
+# Track which conversations have already had a successful submission to prevent duplicates
+_successful_submissions: dict[str, str] = {}
 
-    if not api_key or not signature:
-        logger.warning("Missing API key or signature for webhook verification")
+
+def _verify_elevenlabs_signature(request: Request, body: bytes) -> bool:
+    """
+    Verify ElevenLabs webhook HMAC-SHA256 signature.
+    Header format: 'elevenlabs-signature: t=<timestamp>,v0=<hex_sig>'
+    Signed message: '<timestamp>.<raw_body>'
+    """
+    secret = os.getenv("ELEVENLABS_WEBHOOK_SECRET", "")
+    if not secret:
+        return True  # Skip verification if no secret configured
+
+    signature_header = request.headers.get("elevenlabs-signature", "")
+    if not signature_header:
+        logger.warning("Missing ElevenLabs webhook signature header")
         return False
 
     try:
-        from retell import Retell
-        return Retell.verify(
-            body.decode("utf-8"),
-            api_key=api_key,
-            signature=signature,
-        )
-    except ImportError:
-        logger.warning("retell-sdk not installed, skipping signature verification")
-        return True
+        parts = dict(p.split("=", 1) for p in signature_header.split(","))
+        timestamp = parts.get("t", "")
+        provided_sig = parts.get("v0", "")
+        message = f"{timestamp}.{body.decode('utf-8')}"
+        expected = hmac.new(secret.encode(), message.encode(), hashlib.sha256).hexdigest()
+        return hmac.compare_digest(expected, provided_sig)
     except Exception as e:
-        logger.error(f"Signature verification failed: {e}")
+        logger.error(f"ElevenLabs signature verification error: {e}")
         return False
 
 
 # ──────────────────────────────────────────────
-# INBOUND CALL WEBHOOK
+# TWILIO INBOUND CALL WEBHOOK
 # ──────────────────────────────────────────────
-async def handle_inbound_webhook(request: Request) -> JSONResponse:
+async def handle_twilio_voice_inbound(request: Request) -> Response:
     """
-    Called by Retell when an inbound call arrives on the imported Twilio number.
-    Returns dynamic variables that get injected into the prompt template.
+    Twilio calls this endpoint when an inbound call arrives on our number.
 
-    This is where we inject:
-    - Current date/time
-    - Available time slots
-    - Already-booked time slots
-    - Caller's phone number
+    Flow:
+    1. Extract caller phone from Twilio's form POST
+    2. Build dynamic variables (date/time/slots) for this call
+    3. Register the call with ElevenLabs (which returns TwiML)
+    4. Return TwiML to Twilio — ElevenLabs takes over the call
     """
     try:
-        data = await request.json()
+        form = await request.form()
+        caller_phone = form.get("From", "unknown")
+        called_number = form.get("To", "")
+        call_sid = form.get("CallSid", "")
     except Exception:
-        data = {}
+        caller_phone = "unknown"
+        called_number = ""
+        call_sid = ""
 
-    caller_phone = data.get("from_number", "unknown")
-    logger.info(f"Inbound call webhook: caller={caller_phone}")
+    logger.info(f"Inbound call: from={caller_phone}, to={called_number}, sid={call_sid}")
 
-    # Build dynamic variables FAST — no blocking API calls here.
-    # Booked slots are fetched later when the submit_waitlist tool is called,
-    # not on every inbound call. This keeps the webhook response instant
-    # so Retell connects the call and plays the greeting immediately.
+    agent_id = os.getenv("ELEVENLABS_AGENT_ID", "")
+    api_key = os.getenv("ELEVENLABS_API_KEY", "")
+
+    if not agent_id or not api_key:
+        logger.error("ELEVENLABS_AGENT_ID or ELEVENLABS_API_KEY not set")
+        twiml = "<Response><Say>We're experiencing technical difficulties. Please try again later.</Say></Response>"
+        return Response(content=twiml, media_type="application/xml")
+
     dynamic_vars = get_dynamic_variables(
         caller_phone=caller_phone,
         booked_slots=None,
     )
 
-    logger.info(f"Dynamic variables set: {list(dynamic_vars.keys())}")
+    payload = {
+        "agent_id": agent_id,
+        "from_number": caller_phone,
+        "to_number": called_number,
+        "direction": "inbound",
+        "conversation_initiation_client_data": {
+            "dynamic_variables": dynamic_vars,
+        },
+    }
 
-    return JSONResponse(
-        content={"dynamic_variables": dynamic_vars},
-        status_code=200,
-    )
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            resp = await client.post(
+                f"{ELEVENLABS_API_URL}/convai/twilio/register-call",
+                json=payload,
+                headers={
+                    "xi-api-key": api_key,
+                    "Content-Type": "application/json",
+                },
+            )
+            resp.raise_for_status()
+            twiml = resp.text
+            logger.info(f"ElevenLabs registered call for {caller_phone}")
+    except httpx.HTTPStatusError as e:
+        logger.error(f"ElevenLabs register-call HTTP error {e.response.status_code}: {e.response.text}")
+        twiml = "<Response><Say>We're having trouble connecting. Please try again shortly.</Say></Response>"
+    except Exception as e:
+        logger.error(f"ElevenLabs register-call failed: {e}")
+        twiml = "<Response><Say>We're having trouble connecting. Please try again shortly.</Say></Response>"
+
+    return Response(content=twiml, media_type="application/xml")
 
 
 # ──────────────────────────────────────────────
-# CUSTOM TOOL: submit_waitlist
+# ELEVENLABS TOOL: submit_waitlist
 # ──────────────────────────────────────────────
 async def handle_submit_waitlist_tool(request: Request) -> JSONResponse:
     """
-    Custom tool endpoint called by Retell when the LLM invokes submit_waitlist.
-    Receives the collected data and writes to Google Sheets + sends email.
+    ElevenLabs calls this endpoint when the LLM invokes the submit_waitlist tool.
 
-    Retell sends POST with JSON body containing the tool arguments.
+    ElevenLabs POST body:
+    {
+      "tool_name": "submit_waitlist",
+      "tool_call_id": "...",
+      "parameters": { "fullName": "...", "email": "...", ... },
+      "conversation_id": "...",
+      "caller_id": "+1..."
+    }
+
+    Response must be:
+    { "result": "<string message fed back to the LLM>" }
     """
     try:
         data = await request.json()
     except Exception as e:
         logger.error(f"Failed to parse submit_waitlist request: {e}")
         return JSONResponse(
-            content={"success": False, "error": "Invalid request format"},
+            content={"result": "Error processing request. Please try again."},
             status_code=400,
         )
 
-    # Extract arguments — Retell may nest under "args" or send at root
-    args = data.get("args", data)
+    params = data.get("parameters", data)
+    conversation_id = data.get("conversation_id", "")
+    caller_phone = data.get("caller_id", "")
 
-    full_name = args.get("fullName", "")
-    email = args.get("email", "")
-    role = args.get("role", "")
-    clinic_name = args.get("clinicName", "")
-    preferred_time = args.get("preferredTime", "")
-    best_phone = args.get("bestPhone", "")
+    full_name = params.get("fullName", "")
+    email = params.get("email", "")
+    role = params.get("role", "")
+    clinic_name = params.get("clinicName", "")
+    preferred_time = params.get("preferredTime", "")
+    best_phone = params.get("bestPhone", "")
 
     logger.info(
-        f"submit_waitlist tool called: name={full_name}, email={email}, "
+        f"submit_waitlist: name={full_name}, email={email}, "
         f"role={role}, clinic={clinic_name}, time={preferred_time}"
     )
 
-    if not full_name or not email:
-        return JSONResponse(
-            content={
-                "success": False,
-                "message": "Missing required fields. Ask the caller for their full name and email before submitting.",
-            },
-            status_code=200,
-        )
+    # Prevent duplicate submissions for the same conversation
+    if conversation_id and conversation_id in _successful_submissions:
+        prev_time = _successful_submissions[conversation_id]
+        logger.info(f"Duplicate submit for conversation {conversation_id} (already booked: {prev_time})")
+        return JSONResponse(content={
+            "result": (
+                f"This caller is already booked for {prev_time}. "
+                "No need to submit again — just confirm and end the call."
+            )
+        })
 
-    # Check for time conflicts with booked slots
+    if not full_name or not email:
+        return JSONResponse(content={
+            "result": "Missing required fields. Ask the caller for their full name and email before submitting."
+        })
+
+    # Check for time conflicts with already-booked slots
     booked_slots = get_booked_slots()
     if preferred_time and _is_time_conflict(preferred_time, booked_slots):
-        logger.warning(f"Time conflict detected: {preferred_time} is already booked")
-        return JSONResponse(
-            content={
-                "success": False,
-                "message": (
-                    f"The time '{preferred_time}' is already booked. "
-                    "Ask the caller to pick a different time."
-                ),
-            },
-            status_code=200,
-        )
+        logger.warning(f"Time conflict: {preferred_time} is already booked")
+        return JSONResponse(content={
+            "result": (
+                f"The time '{preferred_time}' is already booked. "
+                "Ask the caller to pick a different time."
+            )
+        })
 
-    # Submit to Google Sheets + send confirmation email
     waitlist_data = {
         "fullName": full_name,
         "email": email,
@@ -161,164 +216,142 @@ async def handle_submit_waitlist_tool(request: Request) -> JSONResponse:
         "bestPhone": best_phone,
     }
 
-    success = await submit_to_waitlist(waitlist_data, phone=best_phone)
+    success = await submit_to_waitlist(waitlist_data, phone=caller_phone)
 
     if success:
+        if conversation_id:
+            _successful_submissions[conversation_id] = preferred_time
         logger.info(f"Waitlist submission successful for {email}")
-        return JSONResponse(
-            content={
-                "success": True,
-                "message": (
-                    "Waitlist submission successful. Tell the caller they're all set "
-                    "and the Axis founders will reach out to confirm their demo."
-                ),
-            },
-            status_code=200,
-        )
+        return JSONResponse(content={
+            "result": (
+                "Waitlist submission successful. Tell the caller they're all set "
+                "and the Axis founders will reach out to confirm their demo."
+            )
+        })
     else:
         logger.error(f"Waitlist submission failed for {email}")
-        return JSONResponse(
-            content={
-                "success": False,
-                "message": "Submission had an issue but we captured the info. Reassure the caller that the team will follow up.",
-            },
-            status_code=200,
-        )
+        return JSONResponse(content={
+            "result": "Submission had an issue but we captured the info. Reassure the caller the team will follow up."
+        })
 
 
 # ──────────────────────────────────────────────
-# RETELL WEBHOOK — Call Lifecycle Events
+# ELEVENLABS POST-CALL WEBHOOK
 # ──────────────────────────────────────────────
-async def handle_retell_webhook(request: Request) -> Response:
+async def handle_elevenlabs_webhook(request: Request) -> Response:
     """
-    Receives Retell webhook events for call lifecycle.
+    ElevenLabs post-call webhook — fires after call ends and analysis completes.
 
-    Events:
-    - call_started: Log the call
-    - call_ended: Log duration, check for partial data recovery
-    - call_analyzed: Post-call analysis with extracted data
+    Event types we handle:
+    - post_call_transcription: Full transcript + analysis data
+    - call_initiation_failure: Failed call attempt
+    - post_call_audio: Raw audio blob (ignored)
     """
     body = await request.body()
 
-    # Verify webhook signature in production
-    if os.getenv("VERIFY_RETELL_WEBHOOK", "false").lower() == "true":
-        if not _verify_retell_signature(request, body):
-            logger.warning("Invalid webhook signature — rejecting")
+    if os.getenv("VERIFY_ELEVENLABS_WEBHOOK", "false").lower() == "true":
+        if not _verify_elevenlabs_signature(request, body):
+            logger.warning("Invalid ElevenLabs webhook signature — rejecting")
             return Response(status_code=401)
 
     try:
         data = json.loads(body)
     except json.JSONDecodeError:
-        logger.error("Invalid JSON in webhook request")
+        logger.error("Invalid JSON in ElevenLabs webhook body")
         return Response(status_code=400)
 
-    event = data.get("event", "")
+    event_type = data.get("type", data.get("event_type", ""))
+    logger.info(f"ElevenLabs webhook: event_type={event_type}")
 
-    if event == "call_started":
-        _handle_call_started(data)
-    elif event == "call_ended":
-        await _handle_call_ended(data)
-    elif event == "call_analyzed":
-        await _handle_call_analyzed(data)
+    if event_type == "post_call_transcription":
+        await _handle_post_call_transcription(data)
+    elif event_type == "call_initiation_failure":
+        _handle_call_initiation_failure(data)
+    elif event_type == "post_call_audio":
+        pass  # Audio blob — not needed
     else:
-        logger.info(f"Unhandled webhook event: {event}")
+        logger.info(f"Unhandled ElevenLabs webhook event: {event_type}")
 
-    return Response(status_code=204)
-
-
-def _handle_call_started(data: dict):
-    """Log when a call starts."""
-    call = data.get("call", data.get("data", {}))
-    call_id = call.get("call_id", "unknown")
-    from_number = call.get("from_number", "unknown")
-    agent_id = call.get("agent_id", "unknown")
-
-    logger.info(
-        f"Call started: id={call_id}, from={from_number}, agent={agent_id}"
-    )
+    return Response(status_code=200)
 
 
-async def _handle_call_ended(data: dict):
-    """
-    Log when a call ends. If the call was short or dropped,
-    attempt partial data recovery from the transcript.
-    """
-    call = data.get("call", data.get("data", {}))
-    call_id = call.get("call_id", "unknown")
-    from_number = call.get("from_number", "unknown")
-    duration_ms = call.get("call_duration_ms", 0)
-    end_reason = call.get("disconnection_reason", "unknown")
-    call_status = call.get("call_status", "unknown")
+async def _handle_post_call_transcription(data: dict):
+    """Process transcript, save to Sheets, and attempt partial data recovery."""
+    payload = data.get("data", data)
+    conversation_id = payload.get("conversation_id", "unknown")
+    metadata = payload.get("metadata", {})
+    caller_phone = metadata.get("caller_id", metadata.get("from_number", "unknown"))
 
-    duration_s = duration_ms / 1000 if duration_ms else 0
+    analysis = payload.get("analysis", {})
+    summary = analysis.get("transcript_summary", analysis.get("call_summary", ""))
+    call_successful = analysis.get("call_successful", False)
 
-    logger.info(
-        f"Call ended: id={call_id}, from={from_number}, "
-        f"duration={duration_s:.1f}s, reason={end_reason}, status={call_status}"
-    )
+    # ElevenLabs data_collection_results wraps values as {"value": ..., "rationale": ...}
+    custom_data = analysis.get("data_collection_results", analysis.get("custom_analysis_data", {}))
 
-    # Save transcript to Google Sheets
-    transcript = call.get("transcript", "")
-    if transcript and from_number and from_number != "unknown":
-        logger.info(f"Saving transcript for call {call_id} ({len(transcript)} chars)")
-        try:
-            save_transcript(from_number, transcript)
-        except Exception as e:
-            logger.error(f"Failed to save transcript: {e}")
-    elif transcript:
-        logger.info(f"Call transcript (id={call_id}): {transcript[:500]}...")
+    def _extract(field) -> str:
+        if isinstance(field, dict):
+            return str(field.get("value", ""))
+        return str(field) if field else ""
 
-
-async def _handle_call_analyzed(data: dict):
-    """
-    Handle post-call analysis results.
-    If a demo was NOT booked but we have partial data (name + phone),
-    submit for follow-up.
-    """
-    call = data.get("call", data.get("data", {}))
-    call_id = call.get("call_id", "unknown")
-    from_number = call.get("from_number", "unknown")
-
-    analysis = call.get("call_analysis", {})
-    custom_data = analysis.get("custom_analysis_data", {})
-
-    caller_name = custom_data.get("caller_name", "")
-    caller_email = custom_data.get("caller_email", "")
-    caller_role = custom_data.get("caller_role", "")
-    clinic_name = custom_data.get("clinic_name", "")
-    demo_booked = custom_data.get("demo_booked", False)
-    call_outcome = custom_data.get("call_outcome", "")
-
-    summary = analysis.get("call_summary", "")
-    successful = analysis.get("call_successful", False)
+    caller_name = _extract(custom_data.get("caller_name", ""))
+    caller_email = _extract(custom_data.get("caller_email", ""))
+    caller_role = _extract(custom_data.get("caller_role", ""))
+    clinic_name = _extract(custom_data.get("clinic_name", ""))
+    demo_booked_raw = _extract(custom_data.get("demo_booked", "false"))
 
     logger.info(
-        f"Call analyzed: id={call_id}, outcome={call_outcome}, "
-        f"demo_booked={demo_booked}, successful={successful}"
+        f"Post-call: id={conversation_id}, successful={call_successful}, "
+        f"demo_booked={demo_booked_raw}, caller={caller_phone}"
     )
     if summary:
         logger.info(f"Call summary: {summary}")
 
-    # If demo was NOT booked and we have at least a name,
-    # submit partial data for follow-up
-    if not demo_booked and caller_name and from_number:
-        logger.info(
-            f"Partial data recovery for call {call_id}: "
-            f"name={caller_name}, phone={from_number}"
+    # Save transcript to Google Sheets
+    transcript_data = payload.get("transcript", [])
+    if isinstance(transcript_data, list):
+        transcript_text = "\n".join(
+            f"{t.get('role', 'unknown').upper()}: {t.get('message', '')}"
+            for t in transcript_data
         )
+    else:
+        transcript_text = str(transcript_data)
+
+    if transcript_text and caller_phone and caller_phone != "unknown":
+        logger.info(f"Saving transcript for {caller_phone} ({len(transcript_text)} chars)")
+        try:
+            save_transcript(caller_phone, transcript_text)
+        except Exception as e:
+            logger.error(f"Failed to save transcript: {e}")
+
+    # Partial data recovery if demo was NOT booked but we have a name
+    demo_booked = demo_booked_raw.lower() in ("true", "yes", "1")
+    if not demo_booked and caller_name and caller_phone and caller_phone != "unknown":
+        logger.info(f"Partial data recovery: name={caller_name}, phone={caller_phone}")
         partial_data = {
             "fullName": caller_name,
             "email": caller_email or "",
             "role": caller_role or "unknown",
             "clinicName": clinic_name or "not provided",
-            "preferredTime": f"call dropped - {call_outcome or 'follow up needed'}",
+            "preferredTime": "call dropped - follow up needed",
             "bestPhone": "",
         }
         try:
-            await submit_to_waitlist(partial_data, phone=from_number)
-            logger.info(f"Partial data submitted for follow-up: {caller_name}")
+            await submit_to_waitlist(partial_data, phone=caller_phone)
+            logger.info(f"Partial data submitted for: {caller_name}")
         except Exception as e:
             logger.error(f"Failed to submit partial data: {e}")
+
+    # Clean up submission tracking for this conversation
+    _successful_submissions.pop(conversation_id, None)
+
+
+def _handle_call_initiation_failure(data: dict):
+    payload = data.get("data", data)
+    logger.warning(
+        f"Call initiation failure: agent={payload.get('agent_id')}, "
+        f"reason={payload.get('failure_reason', 'unknown')}"
+    )
 
 
 # ──────────────────────────────────────────────
@@ -328,8 +361,6 @@ def _is_time_conflict(preferred_time: str, booked_slots: list[str]) -> bool:
     """Check if the preferred time conflicts with any already-booked slot."""
     if not preferred_time or not booked_slots:
         return False
-
-    import re
 
     norm = preferred_time.lower().strip()
     for slot in booked_slots:

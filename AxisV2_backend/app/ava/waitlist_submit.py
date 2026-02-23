@@ -108,19 +108,28 @@ def save_transcript(phone: str, transcript: str) -> bool:
         except gspread.WorksheetNotFound:
             return False
 
-        # Find the row by phone number (column 4) — search from bottom up for most recent
+        # Find the most recent row matching this phone with an EMPTY transcript
         phone_col = worksheet.col_values(4)
+        # Pad transcript column to same length so indexing is safe
+        transcript_col = worksheet.col_values(11) if worksheet.col_count >= 11 else []
+        transcript_col += [""] * (len(phone_col) - len(transcript_col))
+
         target_row = None
-        clean_phone = phone.replace("'", "")
+        clean_phone = phone.replace("'", "").strip()
         for i in range(len(phone_col) - 1, 0, -1):
-            cell_val = phone_col[i].replace("'", "")
-            if cell_val == clean_phone:
+            cell_val = phone_col[i].replace("'", "").strip()
+            if cell_val == clean_phone and not transcript_col[i].strip():
                 target_row = i + 1  # 1-indexed
                 break
 
         if target_row is None:
-            logger.warning(f"No row found for phone {phone} — cannot save transcript")
-            return False
+            # No matching row without a transcript — append a new minimal row
+            logger.info(f"No empty-transcript row for {phone}, creating new row")
+            timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            phone_value = f"'{phone}" if phone else ""
+            row = [timestamp, "", "", phone_value, "", "", "", "", "voice-call", ""]
+            worksheet.append_row(row, value_input_option="USER_ENTERED")
+            target_row = len(worksheet.col_values(1))  # the row we just appended
 
         # Transcript column is 11 (K) — expand sheet if needed
         if worksheet.col_count < 11:
@@ -194,6 +203,12 @@ def _parse_preferred_time(preferred_time: str) -> Optional[datetime]:
 
     # Strip timezone suffix
     clean_no_tz = re.sub(r'\s*(Eastern|EST|EDT|ET)\s*$', '', clean, flags=re.IGNORECASE)
+
+    # Strip ordinal suffixes: "18th" -> "18", "1st" -> "1", "2nd" -> "2", "3rd" -> "3"
+    clean_no_tz = re.sub(r'(\d+)(st|nd|rd|th)\b', r'\1', clean_no_tz)
+
+    # Also handle comma-separated format: "February 18, 3:00 PM" -> add "at"
+    clean_no_tz = re.sub(r'(\d),\s+(\d{1,2}:\d{2})', r'\1 at \2', clean_no_tz)
 
     for fmt in formats:
         try:

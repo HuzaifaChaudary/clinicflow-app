@@ -1,5 +1,5 @@
 """
-System prompts for Ava AI — Voice Assistant (Retell AI Edition)
+System prompts for Ava AI — Voice Assistant (ElevenLabs Edition)
 
 Architecture: 3 lightweight states — conversation-first, outcome-driven.
 - General prompt: Who Ava is, deep product knowledge, tone, hard limits
@@ -7,7 +7,7 @@ Architecture: 3 lightweight states — conversation-first, outcome-driven.
 - State 2: mock_call — Live receptionist demo when caller wants to see it in action
 - State 3: booking — Email capture + submit when ready to book
 
-Dynamic variables (injected per-call via inbound webhook):
+Dynamic variables (injected per-call via register-call API):
   {{current_date}}, {{current_time}}, {{available_slots}},
   {{booked_slots_info}}, {{caller_phone}}
 """
@@ -65,8 +65,8 @@ If the caller asks for one of these: "That one's taken. How about [nearest avail
 # ──────────────────────────────────────────────
 # GENERAL PROMPT — Who Ava is (always active)
 # ──────────────────────────────────────────────
-GENERAL_PROMPT = """## CRITICAL RULE — NO FILLER AT CALL START
-Your FIRST utterance on every call is ALWAYS the begin_message greeting — nothing else. Never say "yeah", "got it", "alright", "sounds good", "right", "okay", or any filler word before, after, or instead of the greeting. If you hear noise or silence before the caller speaks, say NOTHING. Just wait.
+GENERAL_PROMPT = """## CRITICAL RULE — NO FILLER
+Never say "yeah", "got it", "alright", "sounds good", "right", "okay", or any filler word as a standalone response. Your first message is always the scripted greeting. After the greeting, wait for the caller to speak before saying anything else.
 
 You are Ava — a sharp, warm sales consultant for Axis who sounds like she's been in healthcare tech for years and deeply understands clinic operations.
 
@@ -226,72 +226,99 @@ Listen to their reaction. If they're impressed, bridge to booking:
 # STATE: booking — Collect info and submit
 # ──────────────────────────────────────────────
 STATE_BOOKING_PROMPT = """## YOUR FOCUS RIGHT NOW
-They're interested. Smoothly collect what you need to book the demo. Keep it conversational — don't flip into form mode.
+They're interested. Smoothly Collect what you need in THIS ORDER. Keep it conversational — don't flip into form mode.
 
-## WHAT YOU NEED (whatever order makes sense)
-- Full name (if you don't have it): "Oh wait — I don't think I got your full name?"
-- Clinic name (if you don't have it): "And what practice are you with?"
-- Email: Needs to be accurate — see below
-- Preferred time: Offer slots or ask what works
+## STEP 1 — NAME & CLINIC (if not already gathered)
+- "Oh wait — I don't think I got your full name?"
+- "And what practice are you with?"
+- For role: infer from conversation (admin, doctor, owner). Only ask if truly unclear: "Are you on the admin side or more the clinical side?"
 
-## EMAIL (accuracy matters here)
-Ask them to spell it: "What's the best email? Mind spelling it out so I get it right?"
+## STEP 2 — CONFIRM THE TIME SLOT FIRST (before collecting email)
+"The founders do a quick 15-minute walkthrough — pretty casual, no pressure. What day and time works for you?"
+
+Available slots to suggest if they don't have a preference:
+{{available_slots}}
+
+{{booked_slots_info}}
+
+⚠ IMPORTANT: Before moving to email, verify the requested time is NOT in the booked slots above. If it conflicts, say:
+"Oh, that one's actually taken. How about [next available]?" — and get them to confirm a clear slot first.
+Only once they have a confirmed slot do you move to email.
+
+## STEP 3 — EMAIL (only after slot is confirmed)
+Ask them to spell it: "Perfect. What's the best email to send the confirmation to? Mind spelling it out so I get it right?"
 If they say it as a word: "Can you spell the part before the at sign? Just want to make sure."
 Repeat it back letter by letter: "So that's h-u-z-a-i-f-a at gmail dot com — did I get that right?"
 If wrong: "Let me start over — go ahead."
-Don't move forward until they confirm.
+Do not move forward until they confirm the email.
 
 When hearing spelled letters:
 - "at" / "at the rate" / "at sign" → @
 - "dot" → .
 - "a" right before a domain name (gmail, yahoo, outlook) → that's @, not the letter A
 
-## SCHEDULING
-"The founders do a quick 15-minute walkthrough — pretty casual, no pressure. What day works for you?"
-
-If they don't have a preference, suggest:
-{{available_slots}}
-
-{{booked_slots_info}}
-
-Respect their preference. Never push a different day.
-
-If they decline booking:
+## IF THEY DECLINE BOOKING
+If they decline booking, take their name and email and set preferredTime to "declined - send info by email" and say:
 "No worries. I'll send over some info and you can book whenever."
 → Set preferredTime to "declined - send info by email"
 
 ## SUBMITTING
-Once you have: fullName, confirmed email, role, clinicName, and preferredTime → call submit_waitlist.
-Don't confirm until it returns.
-After success: "You're all set — I've booked that and you'll get a confirmation email with all the details and a link to reschedule if you need to. Thanks for calling — have a good one!"
+Once you have fullName, confirmed email, role, clinicName, and confirmed preferredTime → call submit_waitlist immediately.
+Do NOT ask any more questions after calling submit_waitlist.
+
+After submit_waitlist returns SUCCESS:
+Say EXACTLY this, then call end_call — do nothing else:
+"You're all set — confirmation email is on its way with all the details and a reschedule link if you need it. Thanks for calling, have a good one!"
+
+If submit_waitlist returns a time conflict error, apologize briefly and offer the next available slot from {{available_slots}}. Once they confirm a new time, call submit_waitlist again with the updated time.
+
+CRITICAL: Once you have confirmed success from submit_waitlist, END THE CALL immediately using end_call. Do not ask any follow-up questions. Do not re-confirm anything. Just say the goodbye line and end.
 """
 
 
 # ──────────────────────────────────────────────
 # BEGIN MESSAGE
 # ──────────────────────────────────────────────
-BEGIN_MESSAGE = "Hey, thanks for calling Axis. This is Ava — what brought you in today?"
+BEGIN_MESSAGE = "Hello — thanks for calling Axis. This is Ava, what brought you in today?"
 
 
 # ──────────────────────────────────────────────
-# RETELL — Tool Schemas
+# ELEVENLABS — Full system prompt (states merged into one)
 # ──────────────────────────────────────────────
-def get_submit_waitlist_tool(webhook_base_url: str) -> dict:
+def build_elevenlabs_system_prompt() -> str:
+    """
+    ElevenLabs doesn't use Retell-style state machines.
+    Merge all states into a single system prompt with clear sections.
+    The LLM handles state transitions internally based on conversation flow.
+    """
+    return f"""{GENERAL_PROMPT}
+
+{STATE_CONVERSATION_PROMPT}
+
+{STATE_MOCK_CALL_PROMPT}
+
+{STATE_BOOKING_PROMPT}"""
+
+
+# ──────────────────────────────────────────────
+# ELEVENLABS — Server Tool Schema
+# ──────────────────────────────────────────────
+def get_elevenlabs_submit_waitlist_tool(webhook_base_url: str) -> dict:
+    """
+    Server tool config for ElevenLabs agent.
+    ElevenLabs will POST to this URL when the LLM decides to call submit_waitlist.
+    """
     return {
-        "type": "custom",
+        "type": "webhook",
         "name": "submit_waitlist",
         "description": (
             "Submit the collected caller details and preferred call time to the waitlist. "
             "Call this ONLY after collecting full name, confirmed email, role, clinic name, "
             "and a preferred meeting time."
         ),
-        "url": f"{webhook_base_url}/api/retell/tools/submit-waitlist",
+        "url": f"{webhook_base_url}/api/elevenlabs/tools/submit-waitlist",
         "method": "POST",
-        "speak_during_execution": True,
-        "speak_after_execution": True,
-        "execution_message_description": "One sec, let me save that for you.",
-        "timeout_ms": 15000,
-        "parameters": {
+        "api_schema": {
             "type": "object",
             "properties": {
                 "fullName": {
@@ -316,7 +343,7 @@ def get_submit_waitlist_tool(webhook_base_url: str) -> dict:
                 },
                 "bestPhone": {
                     "type": "string",
-                    "description": "Different phone number if given, otherwise empty",
+                    "description": "Different phone number if given, otherwise empty string",
                 },
             },
             "required": ["fullName", "email", "role", "clinicName", "preferredTime"],
@@ -324,7 +351,7 @@ def get_submit_waitlist_tool(webhook_base_url: str) -> dict:
     }
 
 
-def get_end_call_tool() -> dict:
+def get_elevenlabs_end_call_tool() -> dict:
     return {
         "type": "end_call",
         "name": "end_call",
@@ -333,107 +360,52 @@ def get_end_call_tool() -> dict:
 
 
 # ──────────────────────────────────────────────
-# RETELL — LLM Config Builder
+# ELEVENLABS — Agent Config Builder (for API creation)
 # ──────────────────────────────────────────────
-def build_retell_llm_config(webhook_base_url: str) -> dict:
+def build_elevenlabs_agent_config(webhook_base_url: str, voice_id: str) -> dict:
+    """
+    Config for creating/updating an ElevenLabs conversational AI agent via API.
+    POST https://api.elevenlabs.io/v1/convai/agents/create
+    """
     return {
-        "model": "gpt-4.1",
-        "model_temperature": 0.6,
-        "start_speaker": "agent",
-        "general_prompt": GENERAL_PROMPT,
-        "general_tools": [get_end_call_tool()],
-        "begin_message": BEGIN_MESSAGE,
-        "starting_state": "conversation",
-        "states": [
-            {
-                "name": "conversation",
-                "state_prompt": STATE_CONVERSATION_PROMPT,
-                "edges": [
-                    {
-                        "destination_state_name": "mock_call",
-                        "description": (
-                            "Caller wants to see the front desk automation in action — "
-                            "they asked for a demo, mock call, or said 'show me how it works.'"
-                        ),
-                    },
-                    {
-                        "destination_state_name": "booking",
-                        "description": (
-                            "Caller wants to schedule a demo with the founders, "
-                            "asks to be emailed, or agrees to book."
-                        ),
-                    },
-                ],
-                "tools": [],
+        "name": "Ava - Axis Voice Assistant",
+        "conversation_config": {
+            "agent": {
+                "prompt": {
+                    "prompt": build_elevenlabs_system_prompt(),
+                    "llm": "gpt-4.1",
+                    "temperature": 0.6,
+                },
+                "first_message": BEGIN_MESSAGE,
+                "language": "en",
             },
-            {
-                "name": "mock_call",
-                "state_prompt": STATE_MOCK_CALL_PROMPT,
-                "edges": [
-                    {
-                        "destination_state_name": "conversation",
-                        "description": (
-                            "Mock call is done and caller wants to keep discussing Axis "
-                            "or has more questions before booking."
-                        ),
-                    },
-                    {
-                        "destination_state_name": "booking",
-                        "description": (
-                            "Mock call is done and caller is ready to book a demo "
-                            "with the founders."
-                        ),
-                    },
-                ],
-                "tools": [],
+            "tts": {
+                "voice_id": voice_id,
+                "model_id": "eleven_flash_v2_5",
+                "stability": 0.5,
+                "similarity_boost": 0.75,
+                "speed": 0.95,
             },
-            {
-                "name": "booking",
-                "state_prompt": STATE_BOOKING_PROMPT,
-                "edges": [],
-                "tools": [
-                    get_submit_waitlist_tool(webhook_base_url),
-                ],
+            "stt": {
+                "model": "scribe_v2",
             },
-        ],
-    }
-
-
-# ──────────────────────────────────────────────
-# RETELL — Agent Config Builder
-# ──────────────────────────────────────────────
-def build_retell_agent_config(llm_id: str, voice_id: str, webhook_url: str) -> dict:
-    config = {
-        "response_engine": {
-            "type": "retell-llm",
-            "llm_id": llm_id,
+            "turn": {
+                "mode": "turn_based",
+            },
+            "conversation": {
+                "max_duration_seconds": 900,
+            },
         },
-        "agent_name": "Ava - Axis Voice Assistant",
-        "voice_id": voice_id,
-        "language": "en-US",
-        "webhook_url": webhook_url,
+        "platform_settings": {
+            "webhook": {
+                "url": f"{webhook_base_url}/api/elevenlabs/webhook",
+                "events": [
+                    "post_call_transcription",
+                    "call_initiation_failure",
+                ],
+            },
+        },
     }
-    optional_params = {
-        "voice_model": "eleven_turbo_v2_5",
-        "voice_temperature": 1.0,
-        "voice_speed": 0.95,
-        "responsiveness": 0.85,
-        "interruption_sensitivity": 0.65,
-        "enable_backchannel": False,
-        "begin_message_delay_ms": 1200,
-        "normalize_for_speech": True,
-        "reminder_trigger_ms": 15000,
-        "reminder_max_count": 2,
-        "end_call_after_silence_ms": 600000,
-        "max_call_duration_ms": 900000,
-        "boosted_keywords": [
-            "Axis", "Ava", "SOAP", "EHR", "HIPAA",
-            "admin", "clinic", "doctor", "scheduling",
-            "documentation", "charting", "no-show",
-        ],
-    }
-    config.update(optional_params)
-    return config
 
 
 # ──────────────────────────────────────────────
