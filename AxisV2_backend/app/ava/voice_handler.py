@@ -98,9 +98,16 @@ async def handle_twilio_voice_inbound(request: Request) -> Response:
         twiml = "<Response><Say>We're experiencing technical difficulties. Please try again later.</Say></Response>"
         return Response(content=twiml, media_type="application/xml")
 
+    try:
+        booked_slots = get_booked_slots()
+        logger.info(f"Loaded {len(booked_slots)} booked slots for call context")
+    except Exception as e:
+        logger.warning(f"Could not load booked slots: {e}")
+        booked_slots = []
+
     dynamic_vars = get_dynamic_variables(
         caller_phone=caller_phone,
-        booked_slots=None,
+        booked_slots=booked_slots,
     )
 
     payload = {
@@ -200,10 +207,13 @@ async def handle_submit_waitlist_tool(request: Request) -> JSONResponse:
     booked_slots = get_booked_slots()
     if preferred_time and _is_time_conflict(preferred_time, booked_slots):
         logger.warning(f"Time conflict: {preferred_time} is already booked")
+        from app.ava.prompts import _get_available_slots
+        available = _get_available_slots()
         return JSONResponse(content={
             "result": (
-                f"The time '{preferred_time}' is already booked. "
-                "Ask the caller to pick a different time."
+                f"TIME CONFLICT: '{preferred_time}' is already booked. "
+                f"Do NOT retry this same time. Suggest one of these open slots instead:\n{available}\n"
+                "Ask the caller which of these works for them, then call submit_waitlist with the NEW time."
             )
         })
 

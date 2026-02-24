@@ -40,8 +40,8 @@ BASE = "https://api.elevenlabs.io/v1"
 HEADERS = {"xi-api-key": API_KEY, "Content-Type": "application/json"}
 WEBHOOK_BASE = "https://ava.useaxis.app"
 
-# Voice: Sarah - Mature, Reassuring, Confident (female, good for Ava)
-DEFAULT_VOICE_ID = "EXAVITQu4vr4xnSDxMaL"
+# Voice: Jessica - Playful, Bright, Warm (female, conversational, American)
+DEFAULT_VOICE_ID = "cgSgspJ2msm6clMCkdW9"
 
 
 def get_system_prompt() -> str:
@@ -80,38 +80,57 @@ def update_agent(agent_id: str, conversation_config: dict, platform_settings: di
     return r.json()
 
 
-def build_conversation_config(voice_id: str) -> dict:
-    """Build the conversation_config for PATCH (only fields we want to set)."""
-    prompt = get_system_prompt()
-    first_message = get_first_message()
+SUBMIT_WAITLIST_TOOL_ID = os.getenv("ELEVENLABS_SUBMIT_TOOL_ID", "tool_8901kj60yj79f9rvbe81z86bmw8k")
 
-    # Webhook tool: submit_waitlist
-    submit_tool = {
-        "type": "webhook",
+
+def ensure_submit_waitlist_tool() -> str:
+    """Create or find the submit_waitlist webhook tool. Returns tool_id."""
+    r = httpx.get(f"{BASE}/convai/tools", headers=HEADERS, timeout=15)
+    r.raise_for_status()
+    for tool in r.json().get("tools", []):
+        cfg = tool.get("tool_config", {})
+        if cfg.get("name") == "submit_waitlist":
+            return tool["id"]
+
+    body = {
         "name": "submit_waitlist",
-        "description": (
-            "Submit the collected caller details and preferred call time to the waitlist. "
-            "Call this ONLY after collecting full name, confirmed email, role, clinic name, "
-            "and a preferred meeting time."
-        ),
-        "api_schema": {
-            "url": f"{WEBHOOK_BASE}/api/elevenlabs/tools/submit-waitlist",
-            "method": "POST",
-            "content_type": "application/json",
-            "request_body_schema": {
-                "type": "object",
-                "properties": {
-                    "fullName": {"type": "string", "description": "Caller's full name"},
-                    "email": {"type": "string", "description": "Confirmed email"},
-                    "role": {"type": "string", "description": "Role at clinic"},
-                    "clinicName": {"type": "string", "description": "Practice name"},
-                    "preferredTime": {"type": "string", "description": "Preferred demo date/time"},
-                    "bestPhone": {"type": "string", "description": "Other phone if given"},
+        "description": "Submit caller details to book a demo.",
+        "tool_config": {
+            "type": "webhook",
+            "name": "submit_waitlist",
+            "description": (
+                "Submit the collected caller details and preferred demo time to the waitlist. "
+                "Call this ONLY after collecting full name, confirmed email, role, clinic name, "
+                "and a preferred meeting time."
+            ),
+            "api_schema": {
+                "url": f"{WEBHOOK_BASE}/api/elevenlabs/tools/submit-waitlist",
+                "method": "POST",
+                "content_type": "application/json",
+                "request_body_schema": {
+                    "type": "object",
+                    "properties": {
+                        "fullName": {"type": "string", "description": "Caller full name"},
+                        "email": {"type": "string", "description": "Confirmed email address"},
+                        "role": {"type": "string", "description": "Role at the clinic"},
+                        "clinicName": {"type": "string", "description": "Name of the practice"},
+                        "preferredTime": {"type": "string", "description": "Preferred demo date/time"},
+                        "bestPhone": {"type": "string", "description": "Alternative phone if given"},
+                    },
+                    "required": ["fullName", "email", "role", "clinicName", "preferredTime"],
                 },
-                "required": ["fullName", "email", "role", "clinicName", "preferredTime"],
             },
         },
     }
+    r = httpx.post(f"{BASE}/convai/tools", headers=HEADERS, json=body, timeout=15)
+    r.raise_for_status()
+    return r.json()["id"]
+
+
+def build_conversation_config(voice_id: str, tool_ids: list[str]) -> dict:
+    """Build the conversation_config for PATCH (only fields we want to set)."""
+    prompt = get_system_prompt()
+    first_message = get_first_message()
 
     return {
         "asr": {
@@ -120,12 +139,19 @@ def build_conversation_config(voice_id: str) -> dict:
             "user_input_audio_format": "pcm_16000",
             "keywords": [],
         },
+        "turn": {
+            "turn_timeout": 15.0,
+            "initial_wait_time": -1,
+            "turn_eagerness": "patient",
+            "spelling_patience": "auto",
+            "speculative_turn": False,
+        },
         "tts": {
-            "model_id": "eleven_flash_v2",  # API requires turbo or flash v2 for English + Scribe
+            "model_id": "eleven_flash_v2",
             "voice_id": voice_id,
-            "stability": 0.5,
-            "similarity_boost": 0.75,
-            "speed": 0.95,
+            "stability": 0.3,
+            "similarity_boost": 0.8,
+            "speed": 1.0,
             "agent_output_audio_format": "pcm_16000",
             "optimize_streaming_latency": 3,
         },
@@ -135,16 +161,27 @@ def build_conversation_config(voice_id: str) -> dict:
         "agent": {
             "first_message": first_message,
             "language": "en",
+            "disable_first_message_interruptions": True,
             "prompt": {
                 "prompt": prompt,
                 "llm": "gpt-4.1",
-                "temperature": 0.6,
-                "tools": [submit_tool],
+                "temperature": 0.3,
+                "tool_ids": tool_ids,
                 "built_in_tools": {
                     "end_call": {
                         "type": "system",
                         "name": "end_call",
+                        "description": "End the phone call after saying goodbye.",
                         "params": {"system_tool_type": "end_call"},
+                    },
+                    "skip_turn": {
+                        "type": "system",
+                        "name": "skip_turn",
+                        "description": (
+                            "Stay silent and wait for the caller to speak. "
+                            "Use this after the greeting or whenever you have nothing meaningful to add."
+                        ),
+                        "params": {"system_tool_type": "skip_turn"},
                     },
                 },
             },
@@ -168,8 +205,17 @@ def main():
     voice_id = os.getenv("ELEVENLABS_VOICE_ID") or DEFAULT_VOICE_ID
     print(f"Using voice_id: {voice_id}")
 
-    print("Building conversation config (prompt, Flash v2 TTS, Scribe Realtime STT, submit_waitlist tool)...")
-    config = build_conversation_config(voice_id)
+    print("Ensuring submit_waitlist webhook tool exists...")
+    try:
+        tool_id = ensure_submit_waitlist_tool()
+        print(f"submit_waitlist tool: {tool_id}")
+    except httpx.HTTPStatusError as e:
+        print(f"Warning: could not create/find tool: {e.response.status_code} {e.response.text}")
+        tool_id = SUBMIT_WAITLIST_TOOL_ID
+        print(f"Falling back to: {tool_id}")
+
+    print("Building conversation config (prompt, Flash v2 TTS, Scribe Realtime STT, tools)...")
+    config = build_conversation_config(voice_id, tool_ids=[tool_id])
 
     print("Patching agent...")
     try:
